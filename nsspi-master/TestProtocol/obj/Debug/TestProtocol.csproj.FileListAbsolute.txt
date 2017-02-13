@@ -1,0 +1,10 @@
+E:\MessageFramework\nsspi-master\TestProtocol\bin\Debug\TestProtocol.dll.config
+E:\MessageFramework\nsspi-master\TestProtocol\bin\Debug\TestProtocol.dll
+E:\MessageFramework\nsspi-master\TestProtocol\bin\Debug\TestProtocol.pdb
+E:\MessageFramework\nsspi-master\TestProtocol\bin\Debug\NSspi.dll
+E:\MessageFramework\nsspi-master\TestProtocol\bin\Debug\NSspi.pdb
+E:\MessageFramework\nsspi-master\TestProtocol\obj\Debug\TestProtocol.csprojResolveAssemblyReference.cache
+E:\MessageFramework\nsspi-master\TestProtocol\obj\Debug\TestProtocol.Properties.Resources.resources
+E:\MessageFramework\nsspi-master\TestProtocol\obj\Debug\TestProtocol.csproj.GenerateResource.Cache
+E:\MessageFramework\nsspi-master\TestProtocol\obj\Debug\TestProtocol.dll
+E:\MessageFramework\nsspi-master\TestProtocol\obj\Debug\TestProtocol.pdb

@@ -1,0 +1,4 @@
+E:\MessageFramework\nsspi-master\NSspi\bin\Debug\NSspi.dll
+E:\MessageFramework\nsspi-master\NSspi\bin\Debug\NSspi.pdb
+E:\MessageFramework\nsspi-master\NSspi\obj\Debug\NSspi.dll
+E:\MessageFramework\nsspi-master\NSspi\obj\Debug\NSspi.pdb

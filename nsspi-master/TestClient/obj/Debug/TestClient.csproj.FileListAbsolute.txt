@@ -1,0 +1,13 @@
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\TestClient.exe.config
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\TestClient.exe
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\TestClient.pdb
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\NSspi.dll
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\TestProtocol.dll
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\NSspi.pdb
+E:\MessageFramework\nsspi-master\TestClient\bin\Debug\TestProtocol.pdb
+E:\MessageFramework\nsspi-master\TestClient\obj\Debug\TestClient.csprojResolveAssemblyReference.cache
+E:\MessageFramework\nsspi-master\TestClient\obj\Debug\TestClient.ClientForm.resources
+E:\MessageFramework\nsspi-master\TestClient\obj\Debug\TestClient.Properties.Resources.resources
+E:\MessageFramework\nsspi-master\TestClient\obj\Debug\TestClient.csproj.GenerateResource.Cache
+E:\MessageFramework\nsspi-master\TestClient\obj\Debug\TestClient.exe
+E:\MessageFramework\nsspi-master\TestClient\obj\Debug\TestClient.pdb

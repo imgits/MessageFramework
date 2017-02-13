@@ -1,0 +1,10 @@
+E:\MessageFramework\nsspi-master\NsspiDemo\bin\Debug\NsspiDemo.exe.config
+E:\MessageFramework\nsspi-master\NsspiDemo\bin\Debug\NsspiDemo.exe
+E:\MessageFramework\nsspi-master\NsspiDemo\bin\Debug\NsspiDemo.pdb
+E:\MessageFramework\nsspi-master\NsspiDemo\bin\Debug\NSspi.dll
+E:\MessageFramework\nsspi-master\NsspiDemo\bin\Debug\NSspi.pdb
+E:\MessageFramework\nsspi-master\NsspiDemo\obj\Debug\NsspiDemo.csprojResolveAssemblyReference.cache
+E:\MessageFramework\nsspi-master\NsspiDemo\obj\Debug\NsspiDemo.Properties.Resources.resources
+E:\MessageFramework\nsspi-master\NsspiDemo\obj\Debug\NsspiDemo.csproj.GenerateResource.Cache
+E:\MessageFramework\nsspi-master\NsspiDemo\obj\Debug\NsspiDemo.exe
+E:\MessageFramework\nsspi-master\NsspiDemo\obj\Debug\NsspiDemo.pdb
