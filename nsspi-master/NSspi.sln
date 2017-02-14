@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 15
+VisualStudioVersion = 15.0.26020.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestClient", "TestClient\TestClient.csproj", "{E93FBF1A-5198-44D6-BDF0-880D17F2B81A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProtocol", "TestProtocol\TestProtocol.csproj", "{9BFD94E1-D9FB-44D7-A6E7-8BAC2620E535}"
@@ -10,6 +12,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NSspi", "NSspi\NSspi.csproj", "{4B4CD933-BF62-4F92-B8FA-6771758C5197}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NsspiDemo", "NsspiDemo\NsspiDemo.csproj", "{43FD19B6-656A-4AA1-9D3B-40B3A0C94084}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SSPI", "SSPI\SSPI.csproj", "{A0032A43-76A7-4927-816C-591515466E65}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Asn1Base", "..\..\WindowsProtocolTestSuites\ProtoSDK\Asn1Base\Asn1Base.csproj", "{DEDA188C-C97E-4968-BC31-594925631E9F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,6 +43,14 @@ Global
 		{43FD19B6-656A-4AA1-9D3B-40B3A0C94084}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43FD19B6-656A-4AA1-9D3B-40B3A0C94084}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{43FD19B6-656A-4AA1-9D3B-40B3A0C94084}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0032A43-76A7-4927-816C-591515466E65}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0032A43-76A7-4927-816C-591515466E65}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0032A43-76A7-4927-816C-591515466E65}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0032A43-76A7-4927-816C-591515466E65}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DEDA188C-C97E-4968-BC31-594925631E9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DEDA188C-C97E-4968-BC31-594925631E9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DEDA188C-C97E-4968-BC31-594925631E9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DEDA188C-C97E-4968-BC31-594925631E9F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

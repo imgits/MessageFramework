@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A0032A43-76A7-4927-816C-591515466E65}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>SSPI</RootNamespace>
+    <AssemblyName>SSPI</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AccountCredential.cs" />
+    <Compile Include="ArrayUtility.cs" />
+    <Compile Include="CertContext.cs" />
+    <Compile Include="CertificateCredential.cs" />
+    <Compile Include="ClientSecurityContext.cs" />
+    <Compile Include="CredSspCred.cs" />
+    <Compile Include="Enums.cs" />
+    <Compile Include="ICredential.cs" />
+    <Compile Include="MachineAccountCredential.cs" />
+    <Compile Include="NativeMethods.cs" />
+    <Compile Include="NtStatus.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SecurityBuffer.cs" />
+    <Compile Include="SecurityConfig.cs" />
+    <Compile Include="SecurityContext.cs" />
+    <Compile Include="SecurityPackageContextIssuerListInfo.cs" />
+    <Compile Include="SecurityPackageContextKeyInfo.cs" />
+    <Compile Include="SecurityPackageContextNativeNames.cs" />
+    <Compile Include="SecurityPackageContextNegotiationInfo.cs" />
+    <Compile Include="SecurityPackageContextSizes.cs" />
+    <Compile Include="SecurityPackageInformation.cs" />
+    <Compile Include="ServerSecurityContext.cs" />
+    <Compile Include="SspiClientSecurityConfig.cs" />
+    <Compile Include="SspiClientSecurityContext.cs" />
+    <Compile Include="SspiException.cs" />
+    <Compile Include="SspiServerSecurityConfig.cs" />
+    <Compile Include="SspiServerSecurityContext.cs" />
+    <Compile Include="SspiStructures.cs" />
+    <Compile Include="SspiUtility.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
