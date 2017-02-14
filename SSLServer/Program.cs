@@ -156,6 +156,31 @@ namespace SSLServer
 
         public static void Main(string[] args)
         {
+            MsgUser user = new MsgUser();
+            user.from = "ahai";
+            user.to = "gca";
+            user.type = ProtobufSerializer.MsgTypeId(typeof(MsgUser));
+            user.username = "ahai.ysh";
+            user.role = "admin";
+            byte[] msg = ProtobufSerializer.Encode(user);
+            MsgUser user1 = ProtobufSerializer.Decode<MsgUser>(msg, 0, msg.Length);
+
+            byte[] msg1 = ProtobufSerializer.Serialize(user);
+            MsgUser user2 = ProtobufSerializer.Deserialize<MsgUser>(msg1, 0, msg1.Length);
+
+            MsgLogin login = new MsgLogin("Hello world");
+            login.from = "ahai";
+            login.to = "gca";
+            login.type = ProtobufSerializer.MsgTypeId(typeof(MsgUser));
+            login.username = "username";
+            login.password = "password";
+
+            byte[] msg2 = ProtobufSerializer.Serialize(login);
+            MsgLogin login1 = ProtobufSerializer.Deserialize<MsgLogin>(msg2, 0, msg2.Length);
+
+            MsgLogin login2 = (MsgLogin)ProtobufSerializer.Deserialize(msg2, 0, msg2.Length);
+
+            return;
             //string certificate = null;
             //if (args == null || args.Length < 1)
             //{

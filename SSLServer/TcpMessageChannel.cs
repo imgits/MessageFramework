@@ -23,20 +23,24 @@ namespace SSLServer
         public int ChannelId { get; set;}
         public X509Certificate Certificate { get; set; }
 
-        bool   is_server_channel;
+        bool    is_server_channel;
         int     m_received_bytes;
         int     m_send_locked = 0;
-        ConcurrentQueue<object> m_send_messages;
-        public TcpMessageChannel(Socket socket=null)
+        ConcurrentQueue<object> m_send_message_queue;
+
+        public TcpMessageChannel()
         {
-            ChannelSocket = socket;
+            ChannelSocket = null;
             ReceiveEventArgs = new SocketAsyncEventArgs();
             SendEventArgs = new SocketAsyncEventArgs();
             ReceiveEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(ReceiveEvent_Completed);
             SendEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(SendEvent_Completed);
-            m_send_messages = new ConcurrentQueue<object>();
+            ActiveDateTime = DateTime.Now;
+
+            m_send_message_queue = new ConcurrentQueue<object>();
             is_server_channel = true;
             m_received_bytes = 0;
+            m_send_locked = 0;
         }
 
         /// <summary>
@@ -68,7 +72,9 @@ namespace SSLServer
             {
                 ChannelSocket.Close();
                 ChannelSocket.EndConnect(result);
+                return false;
             }
+
             return success;
         }
 
@@ -126,7 +132,7 @@ namespace SSLServer
         {
             if (Interlocked.CompareExchange(ref m_send_locked,1,0)==1)
             {
-                m_send_messages.Enqueue(msg);
+                m_send_message_queue.Enqueue(msg);
                 //将包放进队列
             }
             else
@@ -146,7 +152,7 @@ namespace SSLServer
         {
             Interlocked.Exchange(ref m_send_locked, 0);
             object msg = null;
-            if (m_send_messages.TryDequeue(out msg))
+            if (m_send_message_queue.TryDequeue(out msg))
             {
                 if (Interlocked.CompareExchange(ref m_send_locked, 1, 0) != 1)
                 {

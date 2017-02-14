@@ -11,6 +11,8 @@ namespace SSLServer
 {
     class TcpMessageServer
     {
+        protected const int DEFAULT_MAX_CONNECTIONS = 10;
+
         Socket m_listen_socket;
         int m_listen_port;
         bool m_is_listening;
@@ -27,11 +29,18 @@ namespace SSLServer
 
         public void Start()
         {
-            m_listen_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, m_listen_port);
-            m_listen_socket.Bind(localEndPoint);
-            m_listen_socket.Listen(10);
-            AcceptLoop();
+            try
+            {
+                m_listen_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, m_listen_port);
+                m_listen_socket.Bind(localEndPoint);
+                m_listen_socket.Listen(DEFAULT_MAX_CONNECTIONS);
+                AcceptLoop();
+            }
+            catch(Exception ex)
+            {
+
+            }
         }
 
         internal void AcceptLoop()

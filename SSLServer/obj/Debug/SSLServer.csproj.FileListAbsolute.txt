@@ -4,3 +4,4 @@ E:\MessageFramework\SSLServer\bin\Debug\SSLServer.pdb
 E:\MessageFramework\SSLServer\obj\Debug\SSLServer.exe
 E:\MessageFramework\SSLServer\obj\Debug\SSLServer.pdb
 E:\MessageFramework\SSLServer\obj\Debug\SSLServer.csprojResolveAssemblyReference.cache
+E:\MessageFramework\SSLServer\bin\Debug\protobuf-net.dll

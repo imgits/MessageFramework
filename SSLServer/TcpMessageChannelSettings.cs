@@ -13,5 +13,6 @@ namespace SSLServer
         public int ConnectTimeout { get; set; }
         public int ReceiveTimeout { get; set; }
         public int SendTimeout { get; set; }
+        public int ChannelTimeout { get; set; }
     }
 }

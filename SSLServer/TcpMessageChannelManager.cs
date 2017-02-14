@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using ProtoBuf;
 
 namespace SSLServer
 {
@@ -14,11 +15,13 @@ namespace SSLServer
         private List<TcpMessageChannel> m_used_pool;
         TcpMessageChannelSettings m_channel_settings;
         private byte[] m_receive_buffers;
-        int m_total_channels;
+        int     m_total_channels;
+
         public TcpMessageChannelManager(TcpMessageChannelSettings settings)
         {
             m_free_pool = new Stack<TcpMessageChannel>(settings.MaxChannels);
             m_used_pool = new List<TcpMessageChannel>(settings.MaxChannels);
+
             m_channel_settings = settings;
             m_total_channels = 0;
             m_receive_buffers = new byte[settings.MaxChannels * settings.ReceiveBufferSize];
@@ -53,11 +56,7 @@ namespace SSLServer
                 }
                 else
                 {
-                    channel = new TcpMessageChannel(null);
-                    channel.ReceiveBuffer = m_receive_buffers;
-                    channel.ReceiveBufferOffet = m_total_channels * m_channel_settings.ReceiveBufferSize;
-                    channel.ReceiveBufferSize = m_channel_settings.ReceiveBufferSize;
-                    channel.ChannelId = m_total_channels++;
+                    channel = CreateChannel(m_total_channels++);
                 }
                 if (channel != null)
                 {
@@ -68,11 +67,22 @@ namespace SSLServer
             }
         }
 
+        internal TcpMessageChannel CreateChannel(int id)
+        {
+            var channel = new TcpMessageChannel();
+            channel.ReceiveBuffer = m_receive_buffers;
+            channel.ReceiveBufferOffet = id * m_channel_settings.ReceiveBufferSize;
+            channel.ReceiveBufferSize = m_channel_settings.ReceiveBufferSize;
+            channel.ChannelId = id;
+            return channel;
+        }
+
+
         internal bool CloseIdleChannels()
         {
             foreach(TcpMessageChannel channel in m_used_pool)
             {
-                if ((DateTime.Now - channel.ActiveDateTime).Milliseconds > 1000)
+                if ((DateTime.Now - channel.ActiveDateTime).Milliseconds > m_channel_settings.ChannelTimeout)
                 {
                     channel.Close();
                     m_free_pool.Push(channel);
@@ -89,7 +99,7 @@ namespace SSLServer
                 {
                     ms.WriteByte(0);
                     ms.WriteByte(0);
-                    ProtoBuf.Meta..RuntimeTypeModel.RuntimeTypeModel..Serializer..Serialize<Message>(ms, message);
+                    //ProtoBuf.Meta..RuntimeTypeModel.RuntimeTypeModel..Serializer..Serialize<Message>(ms, message);
                     byte[] msg = ms.ToArray();
                     int packet_size = msg.Length;
                     msg[0] = (byte)(packet_size & 0xff);
@@ -101,14 +111,14 @@ namespace SSLServer
             return null;
         }
 
-        static public Message Decode(byte[] buffer, int offset, int count)
+        static public object Decode(byte[] buffer, int offset, int count)
         {
-            Message msg = null;
+            object msg = null;
             try
             {
                 using (MemoryStream ms = new MemoryStream(buffer, offset, count))
                 {
-                    msg = (Message)ProtoBuf.Serializer..Deserialize(.Deserialize((ms);
+                    msg = (object)ProtoBuf.Serializer.Deserialize<object>(ms);
                 }
             }
             catch
