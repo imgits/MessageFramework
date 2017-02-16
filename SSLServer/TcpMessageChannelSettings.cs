@@ -6,6 +6,18 @@ using System.Threading.Tasks;
 
 namespace SSLServer
 {
+    class TcpMessageServerSettings
+    {
+        public int      ListenPort { get; set; }
+        public bool     UseSSL { get; set; }
+        public string   CertificateFile { get; set; }
+        TcpMessageChannelSettings _ChannelSettings = new TcpMessageChannelSettings();
+        public TcpMessageChannelSettings ChannelSettings
+        {
+            get { return _ChannelSettings; }
+        }
+    }
+
     class TcpMessageChannelSettings
     {
         public int MaxChannels { get; set; }

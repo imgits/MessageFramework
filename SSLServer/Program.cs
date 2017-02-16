@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SSLServer
@@ -14,9 +15,16 @@ namespace SSLServer
     class Program
     {
         static X509Certificate serverCertificate = null;
-
+        static SocketStream _SocketStream;
+        static SslStream _SslStream;
+        static byte[] ReadBuffer = new byte[4096];
+        
         public static void RunServer()
         {
+            _SocketStream = new SocketStream();
+            _SslStream = new SslStream(_SocketStream);
+            _SslStream.ReadTimeout = 5000;
+            _SslStream.WriteTimeout = 5000;
             //serverCertificate = X509Certificate.CreateFromSignedFile(@"C:\Program Files\Microsoft Visual Studio 8\SDK\v2.0\samool.pvk");
             TcpListener listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 901);
             listener.Start();
@@ -37,23 +45,20 @@ namespace SSLServer
 
         static void ProcessClient(TcpClient client)
         {
-            SslStream sslStream = new SslStream(client.GetStream(), false);
             try
             {
-                sslStream.AuthenticateAsServer(serverCertificate, false, SslProtocols.Tls, false);
-                DisplaySecurityLevel(sslStream);
-                DisplaySecurityServices(sslStream);
-                DisplayCertificateInformation(sslStream);
-                DisplayStreamProperties(sslStream);
+                _SslStream.BeginAuthenticateAsServer(serverCertificate, AuthenticateCallback, null);
+                NetworkStream stream = client.GetStream();
+                stream.BeginRead(ReadBuffer,0, ReadBuffer.Length,)
 
-                sslStream.ReadTimeout = 5000;
-                sslStream.WriteTimeout = 5000;
+
                 Console.WriteLine("Waiting for client message...");
-                string messageData = ReadMessage(sslStream);
+
+                string messageData = ReadMessage(_SslStream);
                 Console.WriteLine("Received: {0}", messageData);
                 byte[] message = Encoding.UTF8.GetBytes("Hello from the server.");
                 Console.WriteLine("Sending hello message.");
-                sslStream.Write(message);
+                _SslStream.Write(message);
             }
             catch (AuthenticationException e)
             {
@@ -63,25 +68,55 @@ namespace SSLServer
                     Console.WriteLine("Inner exception: {0}", e.InnerException.Message);
                 }
                 Console.WriteLine("Authentication failed - closing the connection.");
-                sslStream.Close();
+                _SslStream.Close();
                 client.Close();
                 return;
             }
             finally
             {
-                sslStream.Close();
+                _SslStream.Close();
                 client.Close();
             }
         }
 
-        static string ReadMessage(SslStream sslStream)
+        static private void AuthenticateCallback(IAsyncResult ar)
+        {
+            try
+            {
+                _SslStream.EndAuthenticateAsServer(ar);
+            }
+            catch (AuthenticationException e)
+            {
+                _sslFilter.ExceptionCaught(_currentNextFilter, _session, e);
+                return;
+            }
+            catch (IOException e)
+            {
+                _sslFilter.ExceptionCaught(_currentNextFilter, _session, e);
+                return;
+            }
+
+            Authenticated = true;
+
+            if (log.IsDebugEnabled)
+            {
+                // Display the properties and settings for the authenticated stream.
+                SslFilter.DisplaySecurityLevel(_SslStream);
+                SslFilter.DisplaySecurityServices(_SslStream);
+                SslFilter.DisplayCertificateInformation(_SslStream);
+                SslFilter.DisplayStreamProperties(_SslStream);
+            }
+        }
+
+
+        static string ReadMessage(SslStream _SslStream)
         {
             byte[] buffer = new byte[2048];
             StringBuilder messageData = new StringBuilder();
             int bytes = -1;
             do
             {
-                bytes = sslStream.Read(buffer, 0, buffer.Length);
+                bytes = _SslStream.Read(buffer, 0, buffer.Length);
                 Decoder decoder = Encoding.UTF8.GetDecoder();
                 char[] chars = new char[decoder.GetCharCount(buffer, 0, bytes)];
                 decoder.GetChars(buffer, 0, bytes, chars, 0);
@@ -154,8 +189,57 @@ namespace SSLServer
             //Environment.Exit(1);
         }
 
+        static readonly Object _syncRoot = new object();
+
+        static void TestLock()
+        {
+            lock (_syncRoot)
+            {
+                Console.WriteLine("TestLock towice");
+            }
+        }
+
+        static void TestByteStream()
+        {
+            ByteStream bs = new ByteStream(7);
+            for (int i = 'a'; i <= 'z'; i++)
+            {
+                bs.WriteByte((byte)i);
+            }
+            bs.WriteByte((byte)'\n');
+            string hello = ". Hello World\n";
+            byte[] bytes = Encoding.ASCII.GetBytes(hello);
+            for (int i = 0; i < 5; i++)
+            {
+                bs.WriteByte((byte)('1' + i));
+                bs.Write(bytes, 0, bytes.Length);
+            }
+            byte[] buf = new byte[13];
+            do
+            {
+                int b = bs.ReadByte();
+                if (b == -1) break;
+                buf[0] = (byte)b;
+                int len = bs.Read(buf, 1, buf.Length-1);
+                len++;
+                string str = Encoding.ASCII.GetString(buf, 0, len);
+                Console.Write(str);
+                if (len == 1) break;
+            } while (true);
+        }
+
         public static void Main(string[] args)
         {
+            TestByteStream();
+            lock (_syncRoot)
+            {
+                TestLock();
+                Thread t1 = new Thread(TestLock);
+                t1.Start();
+                t1.Join();
+                
+            }
+
             MsgUser user = new MsgUser();
             user.from = "ahai";
             user.to = "gca";

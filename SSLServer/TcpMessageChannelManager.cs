@@ -11,20 +11,20 @@ namespace SSLServer
 {
     class TcpMessageChannelManager
     {
-        private Stack<TcpMessageChannel> m_free_pool;
-        private List<TcpMessageChannel> m_used_pool;
-        TcpMessageChannelSettings m_channel_settings;
-        private byte[] m_receive_buffers;
-        int     m_total_channels;
+        private Stack<TcpMessageChannel> _FreeChannelPool;
+        private List<TcpMessageChannel> _UsedChannelList;
+        TcpMessageChannelSettings _ChannelSettings;
+        private byte[] _ReceiveBufferPool;
+        int     _TotalChannels;
 
         public TcpMessageChannelManager(TcpMessageChannelSettings settings)
         {
-            m_free_pool = new Stack<TcpMessageChannel>(settings.MaxChannels);
-            m_used_pool = new List<TcpMessageChannel>(settings.MaxChannels);
+            _FreeChannelPool = new Stack<TcpMessageChannel>(settings.MaxChannels);
+            _UsedChannelList = new List<TcpMessageChannel>(settings.MaxChannels);
 
-            m_channel_settings = settings;
-            m_total_channels = 0;
-            m_receive_buffers = new byte[settings.MaxChannels * settings.ReceiveBufferSize];
+            _ChannelSettings = settings;
+            _TotalChannels = 0;
+            _ReceiveBufferPool = new byte[settings.MaxChannels * settings.ReceiveBufferSize];
         }
 
         public void Release(TcpMessageChannel item)
@@ -34,34 +34,33 @@ namespace SSLServer
                 throw new ArgumentException("Items added to a AsyncSocketUserToken cannot be null");
             }
             item.Close();
-            lock (m_free_pool)
+            lock (_FreeChannelPool)
             {
-                m_used_pool.Remove(item);
-                m_free_pool.Push(item);
+                _UsedChannelList.Remove(item);
+                _FreeChannelPool.Push(item);
             }
         }
 
-        public TcpMessageChannel Allocate(Socket socket)
+        public TcpMessageChannel Allocate()
         {
-            lock (m_free_pool)
+            lock (_FreeChannelPool)
             {
                 TcpMessageChannel channel = null;
-                if (m_free_pool.Count > 0)
+                if (_FreeChannelPool.Count > 0)
                 {
-                    channel = m_free_pool.Pop();
+                    channel = _FreeChannelPool.Pop();
                 }
-                else if (m_total_channels >= m_channel_settings.MaxChannels)
+                else if (_TotalChannels >= _ChannelSettings.MaxChannels)
                 {
-                    if (CloseIdleChannels()) channel = m_free_pool.Pop();
+                    if (CloseIdleChannels()) channel = _FreeChannelPool.Pop();
                 }
                 else
                 {
-                    channel = CreateChannel(m_total_channels++);
+                    channel = CreateChannel(_TotalChannels++);
                 }
                 if (channel != null)
                 {
-                    channel.ChannelSocket = socket;
-                    m_used_pool.Add(channel);
+                    _UsedChannelList.Add(channel);
                 }
                 return channel;
             }
@@ -70,9 +69,9 @@ namespace SSLServer
         internal TcpMessageChannel CreateChannel(int id)
         {
             var channel = new TcpMessageChannel();
-            channel.ReceiveBuffer = m_receive_buffers;
-            channel.ReceiveBufferOffet = id * m_channel_settings.ReceiveBufferSize;
-            channel.ReceiveBufferSize = m_channel_settings.ReceiveBufferSize;
+            channel.ReceiveBuffer = _ReceiveBufferPool;
+            channel.ReceiveBufferOffet = id * _ChannelSettings.ReceiveBufferSize;
+            channel.ReceiveBufferSize = _ChannelSettings.ReceiveBufferSize;
             channel.ChannelId = id;
             return channel;
         }
@@ -80,54 +79,16 @@ namespace SSLServer
 
         internal bool CloseIdleChannels()
         {
-            foreach(TcpMessageChannel channel in m_used_pool)
+            foreach(TcpMessageChannel channel in _UsedChannelList)
             {
-                if ((DateTime.Now - channel.ActiveDateTime).Milliseconds > m_channel_settings.ChannelTimeout)
+                if ((DateTime.Now - channel.ActiveDateTime).Milliseconds > _ChannelSettings.ChannelTimeout)
                 {
                     channel.Close();
-                    m_free_pool.Push(channel);
+                    _FreeChannelPool.Push(channel);
                 }
             }
-            return (m_free_pool.Count > 0);
+            return (_FreeChannelPool.Count > 0);
         }
-
-        static public byte[] Encode(object message)
-        {
-            try
-            {
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    ms.WriteByte(0);
-                    ms.WriteByte(0);
-                    //ProtoBuf.Meta..RuntimeTypeModel.RuntimeTypeModel..Serializer..Serialize<Message>(ms, message);
-                    byte[] msg = ms.ToArray();
-                    int packet_size = msg.Length;
-                    msg[0] = (byte)(packet_size & 0xff);
-                    msg[1] = (byte)((packet_size >> 8) & 0xff);
-                    return msg;
-                }
-            }
-            catch { }
-            return null;
-        }
-
-        static public object Decode(byte[] buffer, int offset, int count)
-        {
-            object msg = null;
-            try
-            {
-                using (MemoryStream ms = new MemoryStream(buffer, offset, count))
-                {
-                    msg = (object)ProtoBuf.Serializer.Deserialize<object>(ms);
-                }
-            }
-            catch
-            {
-                msg = null;
-            }
-            return msg;
-        }
-
 
     }
 }

@@ -21,12 +21,13 @@ namespace SSLServer
         public int ReceiveBufferSize;
         public DateTime ActiveDateTime;
         public int ChannelId { get; set;}
+        public bool UseSSL { get; set; }
         public X509Certificate Certificate { get; set; }
 
-        bool    is_server_channel;
-        int     m_received_bytes;
-        int     m_send_locked = 0;
-        ConcurrentQueue<object> m_send_message_queue;
+        bool    _IsServerChannel;
+        int     _ReceivedBytes;
+        int     _SendLocked = 0;
+        ConcurrentQueue<object> _SendMessageQueue;
 
         public TcpMessageChannel()
         {
@@ -37,10 +38,11 @@ namespace SSLServer
             SendEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(SendEvent_Completed);
             ActiveDateTime = DateTime.Now;
 
-            m_send_message_queue = new ConcurrentQueue<object>();
-            is_server_channel = true;
-            m_received_bytes = 0;
-            m_send_locked = 0;
+            _SendMessageQueue = new ConcurrentQueue<object>();
+            _IsServerChannel = true;
+            _ReceivedBytes = 0;
+            _SendLocked = 0;
+            UseSSL = false;
         }
 
         /// <summary>
@@ -65,7 +67,7 @@ namespace SSLServer
 
         public bool Connect(string host, int port, int timeout)
         {
-            is_server_channel = false;
+            _IsServerChannel = false;
             var result = ChannelSocket.BeginConnect(host, port, null, null);
             var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(timeout));
             if (!success)
@@ -76,6 +78,13 @@ namespace SSLServer
             }
 
             return success;
+        }
+        public void Accept()
+        {
+            if (UseSSL)
+            {
+
+            }
         }
 
         public bool StartReceive()
@@ -101,21 +110,21 @@ namespace SSLServer
                 Close();
                 return;
             }
-            m_received_bytes += ReceiveEventArgs.BytesTransferred;
+            _ReceivedBytes += ReceiveEventArgs.BytesTransferred;
             int offset = ReceiveBufferOffet;
 
-            while (m_received_bytes >= 2)
+            while (_ReceivedBytes >= 2)
             {
                 //packet_size包含自身的2字节长度
                 int packet_size = BitConverter.ToUInt16(ReceiveBuffer, offset);
-                if (m_received_bytes < packet_size) break;
+                if (_ReceivedBytes < packet_size) break;
                 ProcessReceivedPacket(ReceiveBuffer, offset + 2, packet_size - 2);
-                m_received_bytes -= packet_size;
+                _ReceivedBytes -= packet_size;
                 offset += packet_size;
             }
-            if (m_received_bytes > 0)
+            if (_ReceivedBytes > 0)
             {
-                Buffer.BlockCopy(ReceiveBuffer, offset, ReceiveBuffer, ReceiveBufferOffet, m_received_bytes);
+                Buffer.BlockCopy(ReceiveBuffer, offset, ReceiveBuffer, ReceiveBufferOffet, _ReceivedBytes);
             }
 
         }
@@ -130,9 +139,9 @@ namespace SSLServer
 
         public bool SendMessage<T>(T msg) where T: class
         {
-            if (Interlocked.CompareExchange(ref m_send_locked,1,0)==1)
+            if (Interlocked.CompareExchange(ref _SendLocked,1,0)==1)
             {
-                m_send_message_queue.Enqueue(msg);
+                _SendMessageQueue.Enqueue(msg);
                 //将包放进队列
             }
             else
@@ -150,11 +159,11 @@ namespace SSLServer
 
         void SendEvent_Completed(object sender, SocketAsyncEventArgs arg)
         {
-            Interlocked.Exchange(ref m_send_locked, 0);
+            Interlocked.Exchange(ref _SendLocked, 0);
             object msg = null;
-            if (m_send_message_queue.TryDequeue(out msg))
+            if (_SendMessageQueue.TryDequeue(out msg))
             {
-                if (Interlocked.CompareExchange(ref m_send_locked, 1, 0) != 1)
+                if (Interlocked.CompareExchange(ref _SendLocked, 1, 0) != 1)
                 {
                     //SendEventArgs.SetBuffer(buffer, offset, count);
                     if (ChannelSocket.SendAsync(SendEventArgs))
