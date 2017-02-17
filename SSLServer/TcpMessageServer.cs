@@ -11,16 +11,16 @@ namespace SSLServer
 {
     class TcpMessageServer
     {
-        protected const int DEFAULT_MAX_CONNECTIONS = 10;
+        protected const int MAX_ACCEPTION_SCOKETS = 1;
 
         Socket  _ListenSocket;
         //int     _ListenPort;
         bool    _IsListening;
-        public  X509Certificate Certificate { get; set; }
+        public X509Certificate2 Certificate { get; set; }
         TcpMessageChannelManager _ChannelManager;
         TcpMessageServerSettings _ServerSettings;
 
-        SocketAsyncEventArgs[] AllAcceptEventArgs = new SocketAsyncEventArgs[DEFAULT_MAX_CONNECTIONS];
+        SocketAsyncEventArgs[] AllAcceptEventArgs = new SocketAsyncEventArgs[MAX_ACCEPTION_SCOKETS];
 
         public TcpMessageServer(TcpMessageServerSettings ServerSettings)
         {
@@ -28,10 +28,10 @@ namespace SSLServer
             Certificate = null;
             _ListenSocket = null;
             _IsListening = false;
-            _ChannelManager = new TcpMessageChannelManager(_ServerSettings.ChannelSettings);
+            _ChannelManager = new TcpMessageChannelManager(ServerSettings.ChannelSettings);
             if (_ServerSettings.CertificateFile!=null)
             {
-                Certificate = X509Certificate.CreateFromCertFile(_ServerSettings.CertificateFile);
+                Certificate = new X509Certificate2(ServerSettings.CertificateFile,"messageframework");
             }
         }
 
@@ -40,17 +40,18 @@ namespace SSLServer
             if (_IsListening) return;
             try
             {
-                _ListenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                _ListenSocket = new Socket(AddressFamily.InterNetwork,SocketType.Stream, ProtocolType.Tcp);
                 IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, _ServerSettings.ListenPort);
                 _ListenSocket.Bind(localEndPoint);
-                _ListenSocket.Listen(DEFAULT_MAX_CONNECTIONS);
+                _ListenSocket.Listen(MAX_ACCEPTION_SCOKETS);
 
                 _IsListening = true;
                 //同时提交多个Accept事件请求
-                foreach (var arg in AllAcceptEventArgs)
+                for(int i = 0; i < MAX_ACCEPTION_SCOKETS;i++)
                 {
-                    arg.Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
-                    AcceptLoop(arg);
+                    AllAcceptEventArgs[i] = new SocketAsyncEventArgs();
+                    AllAcceptEventArgs[i].Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
+                    AcceptLoop(AllAcceptEventArgs[i]);
                 }
             }
             catch(Exception ex)
@@ -64,7 +65,7 @@ namespace SSLServer
             try
             {
                 AcceptEventArgs.AcceptSocket = null;
-                if (_ListenSocket.AcceptAsync(AcceptEventArgs))
+                if (!_ListenSocket.AcceptAsync(AcceptEventArgs))
                 {//事件已同步完成
                     ProcessAccept(AcceptEventArgs);
                 }
@@ -98,9 +99,9 @@ namespace SSLServer
             }
             else
             {
-                channel.ChannelSocket = ClientSocket;
+                channel.UseSSL = true;
                 channel.Certificate = this.Certificate;
-                channel.StartReceive();
+                channel.Accept(ClientSocket);
             }
             AcceptLoop(AcceptEventArgs);
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Security;
@@ -49,7 +50,7 @@ namespace SSLServer
             {
                 _SslStream.BeginAuthenticateAsServer(serverCertificate, AuthenticateCallback, null);
                 NetworkStream stream = client.GetStream();
-                stream.BeginRead(ReadBuffer,0, ReadBuffer.Length,)
+                //stream.BeginRead(ReadBuffer,0, ReadBuffer.Length,)
 
 
                 Console.WriteLine("Waiting for client message...");
@@ -87,24 +88,11 @@ namespace SSLServer
             }
             catch (AuthenticationException e)
             {
-                _sslFilter.ExceptionCaught(_currentNextFilter, _session, e);
                 return;
             }
             catch (IOException e)
             {
-                _sslFilter.ExceptionCaught(_currentNextFilter, _session, e);
                 return;
-            }
-
-            Authenticated = true;
-
-            if (log.IsDebugEnabled)
-            {
-                // Display the properties and settings for the authenticated stream.
-                SslFilter.DisplaySecurityLevel(_SslStream);
-                SslFilter.DisplaySecurityServices(_SslStream);
-                SslFilter.DisplayCertificateInformation(_SslStream);
-                SslFilter.DisplayStreamProperties(_SslStream);
             }
         }
 
@@ -228,17 +216,36 @@ namespace SSLServer
             } while (true);
         }
 
+        static void TestServer()
+        {
+            TcpMessageServerSettings ServerSettings = new TcpMessageServerSettings()
+            {
+                ListenPort = 901,
+                UseSSL = true,
+                CertificateFile = "E:\\MessageFramework\\SelfCert.pfx",
+            };
+            ServerSettings.ChannelSettings.MaxChannels = 10;
+            ServerSettings.ChannelSettings.ReceiveBufferSize = 1024;
+            ServerSettings.ChannelSettings.ConnectTimeout = 100;
+            ServerSettings.ChannelSettings.SendTimeout = 1000;
+            ServerSettings.ChannelSettings.ReceiveTimeout = 1000;
+            ServerSettings.ChannelSettings.ChannelTimeout = 5000;
+
+            TcpMessageServer MessageServer = new TcpMessageServer(ServerSettings);
+            MessageServer.Start();
+
+        }
+
         public static void Main(string[] args)
         {
             TestByteStream();
-            lock (_syncRoot)
+            TestServer();
+            do
             {
-                TestLock();
-                Thread t1 = new Thread(TestLock);
-                t1.Start();
-                t1.Join();
-                
-            }
+                int key = Console.Read();
+                if (key == 'q') break;
+            } while (true);
+            return;
 
             MsgUser user = new MsgUser();
             user.from = "ahai";

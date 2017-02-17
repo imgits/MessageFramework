@@ -65,11 +65,50 @@ namespace SSLServer
         {
             lock (_Buffer)
             {
+                if (IsEmpty) return 0;
                 Int32 ReadBytes = _Count < count ? _Count : count;
                 System.Buffer.BlockCopy(_Buffer, _Offset, buffer, offset, ReadBytes);
                 _Offset += ReadBytes;
                 _Count -= ReadBytes;
                 return ReadBytes;
+            }
+        }
+
+        public Int32 PeekByte()
+        {
+            lock (_Buffer)
+            {
+                if (_Count > 0)
+                {
+                    return _Buffer[_Offset];
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+        }
+
+        public Int32 Peek(Byte[] buffer, Int32 offset, Int32 count)
+        {
+            lock (_Buffer)
+            {
+                if (IsEmpty) return 0;
+                Int32 PeekBytes = _Count < count ? _Count : count;
+                System.Buffer.BlockCopy(_Buffer, _Offset, buffer, offset, PeekBytes);
+                return PeekBytes;
+            }
+        }
+
+        public Int32 Skip(int count)
+        {
+            lock (_Buffer)
+            {
+                if (IsEmpty) return 0;
+                Int32 SkipBytes = _Count < count ? _Count : count;
+                _Offset += SkipBytes;
+                _Count -= SkipBytes;
+                return SkipBytes;
             }
         }
 

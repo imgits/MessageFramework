@@ -2,3 +2,4 @@ E:\MessageFramework\nsspi-master\SSPI\bin\Debug\SSPI.dll
 E:\MessageFramework\nsspi-master\SSPI\bin\Debug\SSPI.pdb
 E:\MessageFramework\nsspi-master\SSPI\obj\Debug\SSPI.dll
 E:\MessageFramework\nsspi-master\SSPI\obj\Debug\SSPI.pdb
+E:\MessageFramework\nsspi-master\SSPI\obj\Debug\SSPI.csprojResolveAssemblyReference.cache

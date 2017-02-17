@@ -70,7 +70,7 @@ namespace SSLServer
         {
             var channel = new TcpMessageChannel();
             channel.ReceiveBuffer = _ReceiveBufferPool;
-            channel.ReceiveBufferOffet = id * _ChannelSettings.ReceiveBufferSize;
+            channel.ReceiveBufferOffset = id * _ChannelSettings.ReceiveBufferSize;
             channel.ReceiveBufferSize = _ChannelSettings.ReceiveBufferSize;
             channel.ChannelId = id;
             return channel;

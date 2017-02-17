@@ -18,6 +18,7 @@ namespace SSLClient
     using System.Text;
     using System.Security.Cryptography.X509Certificates;
     using System.IO;
+    using System.Threading;
 
     namespace Examples.System.Net
     {
@@ -31,6 +32,7 @@ namespace SSLClient
                   X509Chain chain,
                   SslPolicyErrors sslPolicyErrors)
             {
+                Console.WriteLine("Certificate error: {0}", sslPolicyErrors);
                 return true;
                 if (sslPolicyErrors == SslPolicyErrors.None)
                     return true;
@@ -62,7 +64,7 @@ namespace SSLClient
                 //certs.Add(cert);
                 try
                 {
-                    sslStream.AuthenticateAsClient("MyServer", null, SslProtocols.Tls, false);
+                    sslStream.AuthenticateAsClient("localhost", null, SslProtocols.Tls, false);
                 }
                 catch (AuthenticationException e)
                 {
@@ -81,9 +83,20 @@ namespace SSLClient
                 // Send hello message to the server. 
                 sslStream.Write(messsage);
                 sslStream.Flush();
-                // Read message from the server.
                 string serverMessage = ReadMessage(sslStream);
                 Console.WriteLine("Server says: {0}", serverMessage);
+                do
+                {
+                    string msg = Console.ReadLine();
+                    // Send hello message to the server. 
+                    messsage = Encoding.UTF8.GetBytes(msg);
+                    sslStream.Write(messsage);
+                    sslStream.Flush();
+                    // Read message from the server.
+                    serverMessage = ReadMessage(sslStream);
+                    Console.WriteLine("Server says: {0}", serverMessage);
+                    if (msg == "exit") break;
+                } while (true);
                 // Close the client connection.
                 client.Close();
                 Console.WriteLine("Client closed.");
@@ -128,7 +141,7 @@ namespace SSLClient
             {
                 string machineName = null;
                 machineName = "127.0.0.1";
-
+                Thread.Sleep(1000);
                 try
                 {
                     RunClient(machineName);

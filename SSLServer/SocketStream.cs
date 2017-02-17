@@ -8,18 +8,22 @@ using System.Threading.Tasks;
 
 namespace SSLServer
 {
- 
     class SocketStream : Stream
     {
+        public delegate void OnRecvDataHandler(Byte[] buffer, Int32 offset, Int32 count);
+        public delegate void OnRecvByteHandler(Byte value);
+
         readonly Object _syncRoot = new object();
         ByteStream RecvStream = new ByteStream();
-        Queue<ByteBuffer> SendPacketQueue = new Queue<ByteBuffer>();
-        Queue<ByteBuffer> RecvPacketQueue = new Queue<ByteBuffer>();
         volatile Boolean _Closed;
 
+        public event OnRecvDataHandler OnRecvData;
+        public event OnRecvByteHandler OnRecvByte;
         public SocketStream()
         {
             _Closed = false;
+            OnRecvData = null;
+            OnRecvByte = null;
         }
 
         public override Int32 ReadByte()
@@ -72,11 +76,12 @@ namespace SSLServer
         /// <param name="count"></param>
         public override void Write(Byte[] buffer, Int32 offset, Int32 count)
         {
-            
+            if (OnRecvData!=null) OnRecvData(buffer, offset, count);
         }
 
         public override void WriteByte(Byte value)
         {
+            if (OnRecvByte != null) OnRecvByte(value);
         }
 
         public override void Flush()
@@ -90,6 +95,7 @@ namespace SSLServer
             lock (_syncRoot)
             {
                 RecvStream.Write(buffer, offset, count);
+                Monitor.PulseAll(_syncRoot);
             }
         }
 
@@ -99,7 +105,14 @@ namespace SSLServer
             {
                 try
                 {
-                    while(RecvStream.Length <=0) Monitor.Wait(_syncRoot);
+                    while (RecvStream.Length <= 0)
+                    {
+                        if (ReadTimeout == -1)
+                        {
+                            throw new TimeoutException("SocketStream.WaitForRecvData : No data to read");
+                        }
+                        Monitor.Wait(_syncRoot);
+                    }
                     return true;
                 }
                 catch (ThreadInterruptedException e)
@@ -110,7 +123,17 @@ namespace SSLServer
             return false;
         }
 
- 
+        public virtual bool DataAvailable
+        {
+            get
+            {
+                lock (_syncRoot)
+                {
+                    return (RecvStream.Length > 0);
+                }
+            }
+        }
+
         public override Boolean CanRead
         {
             get { return true; }
@@ -125,6 +148,13 @@ namespace SSLServer
         {
             get { return true; }
         }
+
+        public override bool CanTimeout
+        {
+            get { return true; }
+        }
+
+        public override int ReadTimeout { get; set; }
 
         public override Int64 Length
         {

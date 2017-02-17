@@ -68,6 +68,58 @@ namespace SSLServer
             }
         }
 
+        public int PeekByte()
+        {
+            lock (_StreamBuffers)
+            {
+                int value = -1;
+                do
+                {
+                    if (_StreamBuffers.Count == 0) break;
+                    ByteBuffer buf = _StreamBuffers.Peek();
+                    if (buf == null) break;
+                    value = buf.PeekByte();
+                } while (value == -1);
+                return value;
+            }
+        }
+
+        public int Peek(byte[] buffer, int offset, int count)
+        {
+            lock (_StreamBuffers)
+            {
+                int PeekBytes = 0;
+                foreach(ByteBuffer buf in _StreamBuffers)
+                {
+                    int bytes = buf.Peek(buffer, offset, count);
+                    PeekBytes += bytes;
+                    offset += bytes;
+                    count -= bytes;
+                    if (count <= 0) break;
+                }
+                return PeekBytes;
+            }
+        }
+
+        public Int32 Skip(int count)
+        {
+            lock (_StreamBuffers)
+            {
+                int SkipBytes = 0;
+                while (count > 0)
+                {
+                    if (_StreamBuffers.Count == 0) break;
+                    ByteBuffer buf = _StreamBuffers.Peek();
+                    if (buf == null) break;
+                    int bytes = buf.Skip(count);
+                    SkipBytes += bytes;
+                    count -= bytes;
+                    if (buf.IsEmpty) _StreamBuffers.Dequeue();
+                }
+                _Length -= SkipBytes;
+                return SkipBytes;
+            }
+        }
 
         public void WriteByte(byte value)
         {
@@ -91,6 +143,7 @@ namespace SSLServer
                 ByteBuffer buf = null;
                 if (_StreamBuffers.Count > 0) buf = _StreamBuffers.Last();
                 if (buf == null) buf = AddBuffer();
+                int BytesWritten = count;
                 while (count > 0)
                 {
                     int bytes = buf.Write(buffer, offset, count);
@@ -98,7 +151,18 @@ namespace SSLServer
                     count -= bytes;
                     if (count >0) buf = AddBuffer();
                 }
-                _Length += count;
+                _Length += BytesWritten;
+            }
+        }
+
+        public bool DataAvailable
+        {
+            get
+            {
+                lock (_StreamBuffers)
+                {
+                    return (_Length > 0);
+                }
             }
         }
 
