@@ -11,6 +11,11 @@ class _SslStream
 private:
 	HCERTSTORE	   m_CertStore;
 	PCCERT_CONTEXT m_pCertContext;
+	CtxtHandle     m_CtxtHandle;
+	CredHandle	   m_CredHandle;
+public:
+	bool Is
+
 public:
 	_SslStream();
 	~_SslStream();
@@ -75,6 +80,55 @@ protected:
 		return pCredHandle;
 	}
 
+	bool AcceptClientToken(BYTE* TokenData, int TokenSize)
+	{
+
+		DWORD dwSSPIFlags = 
+			ASC_REQ_SEQUENCE_DETECT |
+			ASC_REQ_REPLAY_DETECT |
+			ASC_REQ_CONFIDENTIALITY |
+			ASC_REQ_EXTENDED_ERROR |
+			ASC_REQ_ALLOCATE_MEMORY |
+			ASC_REQ_STREAM;
+		DWORD                dwSSPIOutFlags = 0;
+		TimeStamp            tsExpiry;
+
+		SecBuffer InputBuffer[2] = { 0 };
+		
+		InputBuffer[0].BufferType = SECBUFFER_TOKEN;
+		InputBuffer[0].cbBuffer = TokenSize;
+		InputBuffer[0].pvBuffer = TokenData;
+
+		InputBuffer[1].BufferType = SECBUFFER_EMPTY;
+		InputBuffer[1].cbBuffer = 0;
+		InputBuffer[1].pvBuffer = NULL;
+
+		SecBufferDesc InputBufferDesc = { 0 };
+		InputBufferDesc.cBuffers = 2;
+		InputBufferDesc.ulVersion = SECBUFFER_VERSION;
+		InputBufferDesc.pBuffers = InputBuffer;
+
+		SecBuffer OutputBuffer = { 0 };
+		OutputBuffer.BufferType = SECBUFFER_TOKEN;
+		OutputBuffer.cbBuffer = 0;
+		OutputBuffer.pvBuffer = NULL;
+
+		SecBufferDesc OutputBufferDesc = { 0 };
+		OutputBufferDesc.cBuffers = 1;
+		OutputBufferDesc.ulVersion = SECBUFFER_VERSION;
+		OutputBufferDesc.pBuffers = &OutputBuffer;
+
+		SECURITY_STATUS scRet = ::AcceptSecurityContext(
+			&m_CredHandle,								// Which certificate to use, already established
+			SecIsValidHandle(&m_CtxtHandle)? &m_CtxtHandle : NULL,	// The context handle if we have one, ask to make one if this is first call
+			&InputBufferDesc,										// Input buffer list
+			dwSSPIFlags,									// What we require of the connection
+			0,													// Data representation, not used 
+			&m_CtxtHandle,	// If we don't yet have a context handle, it is returned here
+			&OutputBufferDesc,										// [out] The output buffer, for messages to be sent to the other end
+			&dwSSPIOutFlags,								// [out] The flags associated with the negotiated connection
+			&tsExpiry);
+	}
 private:
 
 

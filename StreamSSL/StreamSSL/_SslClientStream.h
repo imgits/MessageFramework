@@ -1,4 +1,5 @@
 #pragma once
+
 class _SslClientStream
 {
 public:

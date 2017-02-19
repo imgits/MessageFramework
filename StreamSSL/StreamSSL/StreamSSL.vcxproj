@@ -137,6 +137,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AutoSecBuffer.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SslCredential.h" />
     <ClInclude Include="SslServer.h" />
