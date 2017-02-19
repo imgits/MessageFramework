@@ -32,6 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
+      <HintPath>..\nsspi-master\packages\NLog.4.4.2\lib\net45\NLog.dll</HintPath>
+    </Reference>
     <Reference Include="protobuf-net, Version=2.1.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
       <HintPath>..\nsspi-master\packages\protobuf-net.2.1.0\lib\net451\protobuf-net.dll</HintPath>
     </Reference>
@@ -47,6 +50,7 @@
   <ItemGroup>
     <Compile Include="ByteBuffer.cs" />
     <Compile Include="ByteStream.cs" />
+    <Compile Include="Log.cs" />
     <Compile Include="MessageChannel.cs" />
     <Compile Include="MessageHeader.cs" />
     <Compile Include="Program.cs" />
@@ -54,6 +58,7 @@
     <Compile Include="ProtobufSerializer.cs" />
     <Compile Include="SocketStream.cs" />
     <Compile Include="SslMessageChannel.cs" />
+    <Compile Include="StreamSSL.cs" />
     <Compile Include="TcpMessageChannel.cs" />
     <Compile Include="TcpMessageChannelManager.cs" />
     <Compile Include="TcpMessageChannelSettings.cs" />
@@ -61,9 +66,19 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <Content Include="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Include="NLog.xsd">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\nsspi-master\NSspi\NSspi.csproj">
+      <Project>{4b4cd933-bf62-4f92-b8fa-6771758c5197}</Project>
+      <Name>NSspi</Name>
+    </ProjectReference>
     <ProjectReference Include="..\nsspi-master\SSPI\SSPI.csproj">
       <Project>{a0032a43-76a7-4927-816c-591515466e65}</Project>
       <Name>SSPI</Name>

@@ -233,7 +233,7 @@ namespace SSLServer
 
             TcpMessageServer MessageServer = new TcpMessageServer(ServerSettings);
             MessageServer.Start();
-
+            Log.Debug("Message server start at port " + ServerSettings.ListenPort);
         }
 
         public static void Main(string[] args)

@@ -1,4 +1,7 @@
-﻿using System;
+﻿using NSspi;
+using NSspi.Contexts;
+using NSspi.Credentials;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -67,6 +70,7 @@ namespace SSLServer
                 AcceptEventArgs.AcceptSocket = null;
                 if (!_ListenSocket.AcceptAsync(AcceptEventArgs))
                 {//事件已同步完成
+                    Log.Debug("ListenSocket.AcceptAsync 事件已同步完成");
                     ProcessAccept(AcceptEventArgs);
                 }
             }
@@ -79,6 +83,7 @@ namespace SSLServer
 
         internal void AcceptEventArg_Completed(object sender, SocketAsyncEventArgs acceptEventArgs)
         {
+            Log.Debug("异步事件完成");
             ProcessAccept(acceptEventArgs);
         }
 
@@ -91,10 +96,13 @@ namespace SSLServer
                 return;
             }
             Socket ClientSocket = AcceptEventArgs.AcceptSocket;
-            
+            TestStreamSSL(ClientSocket);
+            //TestNSspi(ClientSocket);
+            return;
             TcpMessageChannel channel = _ChannelManager.Allocate();
             if (channel == null)
             {
+                Log.Warn("连接通道太多");
                 TooManyClients(ClientSocket);
             }
             else
@@ -109,6 +117,82 @@ namespace SSLServer
         internal void TooManyClients(Socket ClientSocket)
         {
 
+        }
+
+        void TestStreamSSL(Socket client)
+        {
+            NetworkStream client_stream = new NetworkStream(client);
+            StreamSSL sslstream = new StreamSSL(client_stream, "localhost");
+
+            sslstream.Authenticate(Certificate);
+            byte[] buffer = new byte[1024];
+            while(sslstream.IsAuthenticated)
+            {
+                int bytes = sslstream.Read(buffer, 0, buffer.Length);
+                if (bytes>0)
+                {
+                    string msg = Encoding.ASCII.GetString(buffer, 0, bytes);
+                    Console.Write(msg);
+                    sslstream.Write(buffer, 0, bytes);
+                }
+            }
+        }
+
+        void TestNSspi(Socket client)
+        {
+            ServerCredential serverCred = null;
+            ServerContext server = null;
+            byte[] serverToken;
+            SecurityStatus serverStatus;
+
+            try
+            {
+                serverCred = new ServerCredential(PackageNames.Negotiate);
+
+                server = new ServerContext(
+                    serverCred,
+                    ContextAttrib.SequenceDetect |
+                    ContextAttrib.ReplayDetect |
+                    ContextAttrib.Confidentiality |
+                    ContextAttrib.AcceptExtendedError |
+                    ContextAttrib.AllocateMemory |
+                    ContextAttrib.InitStream
+                );
+                serverToken = null;
+                byte[] buffer = new byte[4096];
+                do
+                {
+                    int TokenSize = client.Receive(buffer);
+                    if (TokenSize <= 0) break;
+                    byte[] clientToken = new byte[TokenSize];
+                    Buffer.BlockCopy(buffer, 0, clientToken, 0, TokenSize);
+                    serverStatus = server.AcceptToken(clientToken, out serverToken);
+                    if (serverStatus != SecurityStatus.ContinueNeeded) break;
+                } while (true);
+
+                do
+                {
+                    int DataSize = client.Receive(buffer);
+                    if (DataSize <= 0) break;
+                    byte[] cipherText = new byte[DataSize];
+                    Buffer.BlockCopy(buffer, 0, cipherText, 0, DataSize);
+                    byte[] Plaintext = server.Decrypt(cipherText);
+                    if (Plaintext.Length >0)
+                    {
+                        string msg = Encoding.ASCII.GetString(Plaintext);
+                        Console.Write(msg);
+                        cipherText = server.Encrypt(Plaintext);
+                        client.Send(cipherText,SocketFlags.None);
+                    }
+
+                }while (true);
+
+
+            }
+            catch (Exception ex)
+            {
+
+            }
         }
     }
 }

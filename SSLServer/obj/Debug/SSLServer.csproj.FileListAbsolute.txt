@@ -7,3 +7,8 @@ E:\MessageFramework\SSLServer\obj\Debug\SSLServer.csprojResolveAssemblyReference
 E:\MessageFramework\SSLServer\bin\Debug\protobuf-net.dll
 E:\MessageFramework\SSLServer\bin\Debug\SSPI.dll
 E:\MessageFramework\SSLServer\bin\Debug\SSPI.pdb
+E:\MessageFramework\SSLServer\bin\Debug\NLog.dll
+E:\MessageFramework\SSLServer\bin\Debug\NLog.xml
+E:\MessageFramework\SSLServer\bin\Debug\NLog.config
+E:\MessageFramework\SSLServer\bin\Debug\NSspi.dll
+E:\MessageFramework\SSLServer\bin\Debug\NSspi.pdb

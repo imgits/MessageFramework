@@ -126,6 +126,7 @@ namespace SSLServer
             else ReceiveEventArgs.SetBuffer(ReceiveBuffer, ReceiveBufferOffset, ReceiveBufferSize - ReceiveBufferOffset);
             if (!_ChannelSocket.ReceiveAsync(ReceiveEventArgs))
             {
+                Log.Debug("ChannelSocket.ReceiveAsync 事件已同步完成");
                 ProcessReceive(ReceiveEventArgs);
             }
             return true;
@@ -133,6 +134,7 @@ namespace SSLServer
 
         void ReceiveEvent_Completed(object sender, SocketAsyncEventArgs ReceiveEventArgs)
         {
+            Log.Debug("ChannelSocket.ReceiveAsync 异步事件完成");
             ProcessReceive(ReceiveEventArgs);
         }
 
@@ -140,10 +142,12 @@ namespace SSLServer
         {
             ActiveDateTime = DateTime.Now;
             if (ReceiveEventArgs.SocketError != SocketError.Success)
-            { 
+            {
+                Log.Error(ReceiveEventArgs.SocketError.ToString());
                 Close();
                 return;
             }
+            Log.Debug("Receive " + ReceiveEventArgs.BytesTransferred + " bytes");
             if (ReceiveEventArgs.BytesTransferred == 0)
             {
                 StartReceive();
@@ -160,8 +164,21 @@ namespace SSLServer
                         _ReceivedBytes += Bytes;
                         ProcessReceivedData();
                     }
+                    catch(TimeoutException ex)
+                    {
+                        Log.Warn(ex.Message);
+                        break;
+                    }
                     catch (Exception ex)
                     {
+                        try
+                        {
+                            int Bytes = _SslStream.Read(ReceiveBuffer, ReceiveBufferOffset, ReceiveBufferSize - ReceiveBufferOffset);
+                        }
+                        catch (Exception ex1)
+                        {
+                        }
+                            Log.Warn(ex.Message);
                         break;
                     }
                 }
@@ -172,15 +189,6 @@ namespace SSLServer
                 ProcessReceivedData();
             }
             StartReceive();
-        }
-
-        void OnSslDecryptedData(Byte[] buffer, Int32 offset, Int32 count)
-        {
-            Send(buffer, offset, count);
-        }
-
-        void OnSslDecryptedByte(Byte value)
-        {
         }
 
         protected void ProcessReceivedData()
@@ -214,6 +222,18 @@ namespace SSLServer
             //Message msg = Message.Decode(buffer, offset, count);
             //if (msg == null) throw new ObjectDisposedException("Bad packet");
             //OnReceivedMessage(msg);
+        }
+
+        void OnSslDecryptedData(Byte[] buffer, Int32 offset, Int32 count)
+        {
+            Log.Debug(count + " bytes");
+            Send(buffer, offset, count);
+        }
+
+        void OnSslDecryptedByte(Byte value)
+        {
+            Log.Debug("1 byte");
+            SendByte(value);
         }
 
         bool Send(Byte[] buffer, Int32 offset, Int32 count)

@@ -43,6 +43,21 @@ namespace SSLClient
                 return false;
             }
 
+            static SslStream sslStream = null;
+            static void ReceiveThread()
+            {
+                byte[] buffer = new byte[4096];
+                do
+                {
+                    int bytes = sslStream.Read(buffer, 0, buffer.Length);
+                    if (bytes >0)
+                    {
+                        string serverMessage = Encoding.ASCII.GetString(buffer, 0, bytes);
+                        Console.WriteLine("Server says: {0}", serverMessage);
+                    }
+                }while(true);
+            }
+
             public static void RunClient(string machineName)
             {
                 // Create a TCP/IP client socket.
@@ -50,7 +65,7 @@ namespace SSLClient
                 TcpClient client = new TcpClient(machineName, 901);
                 Console.WriteLine("Client connected.");
                 // Create an SSL stream that will close the client's stream.
-                SslStream sslStream = new SslStream(client.GetStream(), false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
+                sslStream = new SslStream(client.GetStream(), false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
                 // The server name must match the name on the server certificate.
 
                 //X509Store store = new X509Store(StoreName.My);
@@ -77,24 +92,21 @@ namespace SSLClient
                     client.Close();
                     return;
                 }
+                Thread t = new Thread(ReceiveThread);
+                t.Start();
                 // Encode a test message into a byte array.
                 // Signal the end of the message using the "<EOF>".
-                byte[] messsage = Encoding.UTF8.GetBytes("Hello from the client.<EOF>");
+                byte[] messsage = Encoding.UTF8.GetBytes("Hello from the client.<EOF>\n");
                 // Send hello message to the server. 
                 sslStream.Write(messsage);
                 sslStream.Flush();
-                string serverMessage = ReadMessage(sslStream);
-                Console.WriteLine("Server says: {0}", serverMessage);
                 do
                 {
-                    string msg = Console.ReadLine();
+                    string msg = Console.ReadLine() + "\n";
                     // Send hello message to the server. 
                     messsage = Encoding.UTF8.GetBytes(msg);
                     sslStream.Write(messsage);
                     sslStream.Flush();
-                    // Read message from the server.
-                    serverMessage = ReadMessage(sslStream);
-                    Console.WriteLine("Server says: {0}", serverMessage);
                     if (msg == "exit") break;
                 } while (true);
                 // Close the client connection.
