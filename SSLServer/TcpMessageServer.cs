@@ -89,6 +89,7 @@ namespace SSLServer
 
         internal void ProcessAccept(SocketAsyncEventArgs AcceptEventArgs)
         {
+            Log.Debug("Connect From " + AcceptEventArgs.AcceptSocket.RemoteEndPoint.ToString());
             if (AcceptEventArgs.SocketError != SocketError.Success)
             {
                 if (AcceptEventArgs.AcceptSocket !=null) AcceptEventArgs.AcceptSocket.Close();

@@ -220,7 +220,7 @@ namespace SSLServer
         {
             TcpMessageServerSettings ServerSettings = new TcpMessageServerSettings()
             {
-                ListenPort = 901,
+                ListenPort = 1234,
                 UseSSL = true,
                 CertificateFile = "E:\\MessageFramework\\SelfCert.pfx",
             };
