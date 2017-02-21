@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class TcpMessageServerSettings
     {
@@ -12,10 +12,10 @@ namespace SSLServer
         public int      ListenPort { get; set; }
         public bool     UseSSL { get; set; }
         public string   CertificateFile { get; set; }
-        public TcpMessageChannelSettings ChannelSettings = new TcpMessageChannelSettings();
+        public ChannelSettings ChannelSettings = new ChannelSettings();
     }
 
-    class TcpMessageChannelSettings
+    class ChannelSettings
     {
         public int SendBufferSize { get; set; }
         public int RecvBufferSize { get; set; }

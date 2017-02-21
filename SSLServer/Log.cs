@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using NLog;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class Log
     {

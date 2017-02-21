@@ -1,4 +1,4 @@
-﻿using StreamSSL;
+﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,15 +6,16 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using StreamSSL;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class SslMessageChannel : TcpMessageChannel
     {
         readonly X509Certificate2 _Certificate;
         private SslServerStream _SslServerStream;
 
-        public SslMessageChannel(int id, TcpMessageChannelSettings Settings, X509Certificate2 Certificate)
+        public SslMessageChannel(int id, ChannelSettings Settings, X509Certificate2 Certificate)
             :base(id, Settings)
         {
             _Certificate = Certificate;

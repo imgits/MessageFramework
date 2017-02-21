@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SSLServer
+namespace MessageFramework
 {
     [ProtoContract]
     public class MessageHeader

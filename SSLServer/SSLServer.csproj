@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{567E3FAA-13E2-49F3-B199-2B7ACAD786DC}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>SSLServer</RootNamespace>
+    <RootNamespace>MessageFramework</RootNamespace>
     <AssemblyName>SSLServer</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -54,20 +54,19 @@
     <Compile Include="ByteBuffer.cs" />
     <Compile Include="ByteStream.cs" />
     <Compile Include="Log.cs" />
-    <Compile Include="MessageChannel.cs" />
     <Compile Include="MessageHeader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ProtobufSerializer.cs" />
+    <Compile Include="SendRecvMessageArgs.cs" />
     <Compile Include="SocketStream.cs" />
     <Compile Include="SslMessageChannel.cs" />
-    <Compile Include="StreamSSL.cs" />
-    <Compile Include="TcpClientMessageChannel.cs" />
+    <Compile Include="SslMessageClient.cs" />
+    <Compile Include="TcpMessageClient.cs" />
     <Compile Include="TcpMessageChannel.cs" />
     <Compile Include="TcpMessageChannelManager.cs" />
-    <Compile Include="TcpMessageChannelSettings.cs" />
+    <Compile Include="ChannelSettings.cs" />
     <Compile Include="TcpMessageServer.cs" />
-    <Compile Include="TcpServerMessageChannel.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -78,16 +77,6 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\nsspi-master\NSspi\NSspi.csproj">
-      <Project>{4b4cd933-bf62-4f92-b8fa-6771758c5197}</Project>
-      <Name>NSspi</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\nsspi-master\SSPI\SSPI.csproj">
-      <Project>{a0032a43-76a7-4927-816c-591515466e65}</Project>
-      <Name>SSPI</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

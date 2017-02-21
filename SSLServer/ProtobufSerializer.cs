@@ -8,7 +8,7 @@ using ProtoBuf;
 using System.IO;
 using ProtoBuf.Meta;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class ProtobufSerializer
     {

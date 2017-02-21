@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class SocketStream : Stream
     {

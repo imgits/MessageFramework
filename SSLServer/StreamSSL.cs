@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using System.IO;
 using System.Security.Cryptography.X509Certificates;
-using Microsoft.Security.Sspi;
 
 namespace SSLServer
 {

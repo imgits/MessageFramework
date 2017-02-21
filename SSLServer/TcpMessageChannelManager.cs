@@ -8,16 +8,16 @@ using System.Threading.Tasks;
 using ProtoBuf;
 using System.Security.Cryptography.X509Certificates;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class TcpMessageChannelManager
     {
         readonly Stack<TcpMessageChannel> _FreeChannelPool;
         readonly List<TcpMessageChannel> _UsedChannelList;
-        readonly TcpMessageChannelSettings _ChannelSettings;
+        readonly ChannelSettings _ChannelSettings;
         readonly Object _syncRoot = new object();
         
-        public TcpMessageChannelManager(int MaxChannels, TcpMessageChannelSettings ChannelSettings)
+        public TcpMessageChannelManager(int MaxChannels, ChannelSettings ChannelSettings)
         {
             _ChannelSettings = ChannelSettings;
             _FreeChannelPool = new Stack<TcpMessageChannel>(MaxChannels);

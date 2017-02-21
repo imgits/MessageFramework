@@ -1,6 +1,4 @@
-﻿using NSspi;
-using NSspi.Contexts;
-using NSspi.Credentials;
+﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +8,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SSLServer
+namespace MessageFramework
 {
     class TcpMessageServer
     {
@@ -41,15 +39,10 @@ namespace SSLServer
             for (int i = 0; i < ServerSettings.MaxChannels; i++)
             {
                 if (ServerSettings.UseSSL) channel = new SslMessageChannel(i, _ServerSettings.ChannelSettings, Certificate);
-                else channel = new TcpMessageChannel();
+                else channel = new TcpMessageChannel(i, _ServerSettings.ChannelSettings);
                 _ChannelManager.Push(channel);
             }
 
-            for (int i = 0; i < MAX_ACCEPTION_SCOKETS; i++)
-            {
-                AllAcceptEventArgs[i] = new SocketAsyncEventArgs();
-                AllAcceptEventArgs[i].Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
-            }
         }
 
         public void Start()
@@ -67,6 +60,7 @@ namespace SSLServer
                 //同时提交多个Accept事件请求
                 foreach(SocketAsyncEventArgs AcceptEventArgs in AllAcceptEventArgs)
                 {
+                    AcceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
                     AcceptLoop(AcceptEventArgs);
                 }
             }

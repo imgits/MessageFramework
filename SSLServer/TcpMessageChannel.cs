@@ -10,12 +10,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using StreamSSL;
 
-namespace SSLServer
+namespace MessageFramework
 {
+    
     class TcpMessageChannel
     {
         protected SocketAsyncEventArgs ReceiveEventArgs { get; set; }
         protected SocketAsyncEventArgs SendEventArgs { get; set; }
+
+        public event EventHandler<MessageHeader> OnMessageReceived;
 
         public    DateTime ActiveDateTime;
         public    int ChannelId { get; set;}
@@ -24,19 +27,15 @@ namespace SSLServer
         protected bool      _IsServerChannel;
         protected int       _SendLocked = 0;
 
-        readonly TcpMessageChannelSettings _Settings;
+        protected readonly ChannelSettings _Settings;
 
         protected readonly ByteStream  _SendStream;
         protected readonly ByteStream  _RecvStream;
         protected readonly byte[]      _SendBuffer;
         protected readonly byte[]      _RecvBuffer;
 
-        public TcpMessageChannel()
-        {
 
-        }
-
-        public TcpMessageChannel(int id, TcpMessageChannelSettings Settings)
+        public TcpMessageChannel(int id, ChannelSettings Settings)
         {
             ChannelId = id;
             _Settings = Settings;
@@ -53,28 +52,14 @@ namespace SSLServer
             _RecvBuffer = new byte[Settings.RecvBufferSize];
             _IsServerChannel = true;
             _SendLocked = 0;
-        }
 
-        public virtual bool Connect(string host, int port, int timeout)
-        {
-            _IsServerChannel = false;
-            var result = _ChannelSocket.BeginConnect(host, port, null, null);
-            var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(timeout));
-            if (!success)
-            {
-                _ChannelSocket.Close();
-                _ChannelSocket.EndConnect(result);
-                return false;
-            }
-
-            return success;
+            OnMessageReceived = null;
         }
 
         public virtual void Accept(Socket ClientSocket)
         {
             _IsServerChannel = true;
             _ChannelSocket = ClientSocket;
-            ReceiveEventArgs.AcceptSocket = _ChannelSocket;
             StartReceive();
         }
 

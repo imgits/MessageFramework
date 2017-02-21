@@ -3,4 +3,3 @@ E:\MessageFramework\SSLClient\bin\Debug\SSLClient.exe
 E:\MessageFramework\SSLClient\bin\Debug\SSLClient.pdb
 E:\MessageFramework\SSLClient\obj\Debug\SSLClient.exe
 E:\MessageFramework\SSLClient\obj\Debug\SSLClient.pdb
-E:\MessageFramework\SSLClient\obj\Debug\SSLClient.csprojResolveAssemblyReference.cache
