@@ -17,7 +17,6 @@ namespace SSLServer
         protected const int MAX_ACCEPTION_SCOKETS = 1;
 
         Socket  _ListenSocket;
-        //int     _ListenPort;
         bool    _IsListening;
         public X509Certificate2 Certificate { get; set; }
         TcpMessageChannelManager _ChannelManager;
@@ -31,10 +30,25 @@ namespace SSLServer
             Certificate = null;
             _ListenSocket = null;
             _IsListening = false;
-            _ChannelManager = new TcpMessageChannelManager(ServerSettings.ChannelSettings);
-            if (_ServerSettings.CertificateFile!=null)
+            Certificate = null;
+            if (_ServerSettings.CertificateFile != null)
             {
-                Certificate = new X509Certificate2(ServerSettings.CertificateFile,"messageframework");
+                Certificate = new X509Certificate2(ServerSettings.CertificateFile, "messageframework");
+            }
+            _ChannelManager = new TcpMessageChannelManager(ServerSettings.MaxChannels, _ServerSettings.ChannelSettings);
+
+            TcpMessageChannel channel;
+            for (int i = 0; i < ServerSettings.MaxChannels; i++)
+            {
+                if (ServerSettings.UseSSL) channel = new SslMessageChannel(i, _ServerSettings.ChannelSettings, Certificate);
+                else channel = new TcpMessageChannel();
+                _ChannelManager.Push(channel);
+            }
+
+            for (int i = 0; i < MAX_ACCEPTION_SCOKETS; i++)
+            {
+                AllAcceptEventArgs[i] = new SocketAsyncEventArgs();
+                AllAcceptEventArgs[i].Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
             }
         }
 
@@ -49,41 +63,41 @@ namespace SSLServer
                 _ListenSocket.Listen(MAX_ACCEPTION_SCOKETS);
 
                 _IsListening = true;
+
                 //同时提交多个Accept事件请求
-                for(int i = 0; i < MAX_ACCEPTION_SCOKETS;i++)
+                foreach(SocketAsyncEventArgs AcceptEventArgs in AllAcceptEventArgs)
                 {
-                    AllAcceptEventArgs[i] = new SocketAsyncEventArgs();
-                    AllAcceptEventArgs[i].Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
-                    AcceptLoop(AllAcceptEventArgs[i]);
+                    AcceptLoop(AcceptEventArgs);
                 }
             }
             catch(Exception ex)
             {
-
+                Close(ex);
             }
         }
 
         internal void AcceptLoop(SocketAsyncEventArgs AcceptEventArgs)
         {
+            if (!_IsListening) return;
             try
             {
                 AcceptEventArgs.AcceptSocket = null;
                 if (!_ListenSocket.AcceptAsync(AcceptEventArgs))
                 {//事件已同步完成
-                    Log.Debug("ListenSocket.AcceptAsync 事件已同步完成");
+                    //Log.Debug("ListenSocket.AcceptAsync 事件已同步完成");
                     ProcessAccept(AcceptEventArgs);
                 }
             }
             catch (Exception ex)
             {
-                throw ex;
+                Close(ex);
             }
 
         }
 
         internal void AcceptEventArg_Completed(object sender, SocketAsyncEventArgs acceptEventArgs)
         {
-            Log.Debug("异步事件完成");
+            //Log.Debug("异步事件完成");
             ProcessAccept(acceptEventArgs);
         }
 
@@ -97,19 +111,13 @@ namespace SSLServer
                 return;
             }
             Socket ClientSocket = AcceptEventArgs.AcceptSocket;
-            TestStreamSSL(ClientSocket);
-            //TestNSspi(ClientSocket);
-            return;
-            TcpMessageChannel channel = _ChannelManager.Allocate();
+            TcpMessageChannel channel = _ChannelManager.Pop();
             if (channel == null)
             {
-                Log.Warn("连接通道太多");
                 TooManyClients(ClientSocket);
             }
             else
             {
-                channel.UseSSL = true;
-                channel.Certificate = this.Certificate;
                 channel.Accept(ClientSocket);
             }
             AcceptLoop(AcceptEventArgs);
@@ -117,83 +125,17 @@ namespace SSLServer
 
         internal void TooManyClients(Socket ClientSocket)
         {
-
+            Log.Warn("连接通道太多");
+            ClientSocket.Shutdown(SocketShutdown.Both);
+            ClientSocket.Close();
         }
 
-        void TestStreamSSL(Socket client)
+        void Close(Exception ex)
         {
-            NetworkStream client_stream = new NetworkStream(client);
-            StreamSSL sslstream = new StreamSSL(client_stream, "localhost");
-
-            sslstream.Authenticate(Certificate);
-            byte[] buffer = new byte[1024];
-            while(sslstream.IsAuthenticated)
-            {
-                int bytes = sslstream.Read(buffer, 0, buffer.Length);
-                if (bytes>0)
-                {
-                    string msg = Encoding.ASCII.GetString(buffer, 0, bytes);
-                    Console.Write(msg);
-                    sslstream.Write(buffer, 0, bytes);
-                }
-            }
-        }
-
-        void TestNSspi(Socket client)
-        {
-            ServerCredential serverCred = null;
-            ServerContext server = null;
-            byte[] serverToken;
-            SecurityStatus serverStatus;
-
-            try
-            {
-                serverCred = new ServerCredential(PackageNames.Negotiate);
-
-                server = new ServerContext(
-                    serverCred,
-                    ContextAttrib.SequenceDetect |
-                    ContextAttrib.ReplayDetect |
-                    ContextAttrib.Confidentiality |
-                    ContextAttrib.AcceptExtendedError |
-                    ContextAttrib.AllocateMemory |
-                    ContextAttrib.InitStream
-                );
-                serverToken = null;
-                byte[] buffer = new byte[4096];
-                do
-                {
-                    int TokenSize = client.Receive(buffer);
-                    if (TokenSize <= 0) break;
-                    byte[] clientToken = new byte[TokenSize];
-                    Buffer.BlockCopy(buffer, 0, clientToken, 0, TokenSize);
-                    serverStatus = server.AcceptToken(clientToken, out serverToken);
-                    if (serverStatus != SecurityStatus.ContinueNeeded) break;
-                } while (true);
-
-                do
-                {
-                    int DataSize = client.Receive(buffer);
-                    if (DataSize <= 0) break;
-                    byte[] cipherText = new byte[DataSize];
-                    Buffer.BlockCopy(buffer, 0, cipherText, 0, DataSize);
-                    byte[] Plaintext = server.Decrypt(cipherText);
-                    if (Plaintext.Length >0)
-                    {
-                        string msg = Encoding.ASCII.GetString(Plaintext);
-                        Console.Write(msg);
-                        cipherText = server.Encrypt(Plaintext);
-                        client.Send(cipherText,SocketFlags.None);
-                    }
-
-                }while (true);
-
-
-            }
-            catch (Exception ex)
-            {
-
-            }
+            _IsListening = false;
+            Console.WriteLine(ex.Message);
+            _ListenSocket.Close();
+            _ListenSocket = null;
         }
     }
 }

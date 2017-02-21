@@ -22,8 +22,8 @@ namespace SslServerStreamTest
             client = null;
             SslStream = new SslServerStream();
             SslStream.ServerTokenOutput = OnSslServerToken;
-            SslStream.EncryptedDataOutput = OnSslEncryptedData;
-            SslStream.DecryptedDataOutput = OnSslDecryptedData;
+            SslStream.EncryptDataOutput = OnSslEncryptedData;
+            SslStream.DecryptDataOutput = OnSslDecryptedData;
 
             X509Cert = new X509Certificate2("E:/MessageFramework/SelfCert.pfx", "messageframework");
         }

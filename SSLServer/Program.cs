@@ -220,12 +220,13 @@ namespace SSLServer
         {
             TcpMessageServerSettings ServerSettings = new TcpMessageServerSettings()
             {
+                MaxChannels = 1,
                 ListenPort = 1234,
                 UseSSL = true,
                 CertificateFile = "E:\\MessageFramework\\SelfCert.pfx",
             };
-            ServerSettings.ChannelSettings.MaxChannels = 10;
-            ServerSettings.ChannelSettings.ReceiveBufferSize = 1024;
+            ServerSettings.ChannelSettings.SendBufferSize = 4096;
+            ServerSettings.ChannelSettings.RecvBufferSize = 4096;
             ServerSettings.ChannelSettings.ConnectTimeout = 100;
             ServerSettings.ChannelSettings.SendTimeout = 1000;
             ServerSettings.ChannelSettings.ReceiveTimeout = 1000;
@@ -238,6 +239,7 @@ namespace SSLServer
 
         public static void Main(string[] args)
         {
+
             TestByteStream();
             TestServer();
             do
@@ -250,25 +252,18 @@ namespace SSLServer
             MsgUser user = new MsgUser();
             user.from = "ahai";
             user.to = "gca";
-            user.type = ProtobufSerializer.MsgTypeId(typeof(MsgUser));
             user.username = "ahai.ysh";
             user.role = "admin";
-            byte[] msg = ProtobufSerializer.Encode(user);
-            MsgUser user1 = ProtobufSerializer.Decode<MsgUser>(msg, 0, msg.Length);
-
-            byte[] msg1 = ProtobufSerializer.Serialize(user);
-            MsgUser user2 = ProtobufSerializer.Deserialize<MsgUser>(msg1, 0, msg1.Length);
+            byte[] msg = ProtobufSerializer.Serialize(user);
+            MsgUser user1 = (MsgUser)ProtobufSerializer.Deserialize(msg, 0, msg.Length);
 
             MsgLogin login = new MsgLogin("Hello world");
             login.from = "ahai";
             login.to = "gca";
-            login.type = ProtobufSerializer.MsgTypeId(typeof(MsgUser));
             login.username = "username";
             login.password = "password";
 
             byte[] msg2 = ProtobufSerializer.Serialize(login);
-            MsgLogin login1 = ProtobufSerializer.Deserialize<MsgLogin>(msg2, 0, msg2.Length);
-
             MsgLogin login2 = (MsgLogin)ProtobufSerializer.Deserialize(msg2, 0, msg2.Length);
 
             return;

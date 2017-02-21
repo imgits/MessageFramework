@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SslServerStreamTest
@@ -47,6 +48,19 @@ namespace SslServerStreamTest
             {
             }
         }
+        void ThreadReceive()
+        {
+            byte[] buffer = new byte[4096];
+            do
+            {
+                int bytes = sslStream.Read(buffer, 0, buffer.Length);
+                if (bytes > 0)
+                {
+                    string msg = Encoding.ASCII.GetString(buffer, 0, bytes);
+                    Console.Write(msg);
+                }
+            } while (true);
+        }
 
         public bool Start(string host, int port)
         {
@@ -55,10 +69,8 @@ namespace SslServerStreamTest
                 client = new TcpClient(host, port);
                 Console.WriteLine("Client connected.");
                 sslStream = new SslStream(client.GetStream(), false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
-                byte[] buffer = new byte[4096];
-
-                sslStream.AuthenticateAsClient("localhost", null, SslProtocols.Tls, false);
-                sslStream.BeginRead(buffer, 0, buffer.Length, ReadCallback, buffer);
+                sslStream.AuthenticateAsClient("localhost", null, SslProtocols.Tls12, false);
+                new Thread(ThreadReceive).Start();
 
                 byte[] messsage = Encoding.UTF8.GetBytes("Hello from the client.<EOF>\n");
                 // Send hello message to the server. 

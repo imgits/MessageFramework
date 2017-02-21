@@ -8,34 +8,38 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using StreamSSL;
 
 namespace SSLServer
 {
     class TcpMessageChannel
     {
-        public SocketAsyncEventArgs ReceiveEventArgs { get; set; }
-        public SocketAsyncEventArgs SendEventArgs { get; set; }
-        public byte[] ReceiveBuffer;
-        public int ReceiveBufferOffset;
-        public int ReceiveBufferSize;
-        public DateTime ActiveDateTime;
-        public int ChannelId { get; set;}
+        protected SocketAsyncEventArgs ReceiveEventArgs { get; set; }
+        protected SocketAsyncEventArgs SendEventArgs { get; set; }
 
-        protected Socket _ChannelSocket { get; set; }
+        public    DateTime ActiveDateTime;
+        public    int ChannelId { get; set;}
+
+        protected Socket    _ChannelSocket { get; set; }
         protected bool      _IsServerChannel;
-        protected int       _ReceivedBytes;
         protected int       _SendLocked = 0;
-        protected ConcurrentQueue<object> _SendMessageQueue;
 
-        public bool UseSSL = false;
-        public X509Certificate2 Certificate { get; set; }
-        private byte[] _SslRecvBuffer = new byte[4096];
-        private SslStream _SslStream;
-        private SocketStream _SocketStream;
-        private ByteStream _SendStream;
-        private byte[] _SendBuffer = new byte[4096];
+        readonly TcpMessageChannelSettings _Settings;
+
+        protected readonly ByteStream  _SendStream;
+        protected readonly ByteStream  _RecvStream;
+        protected readonly byte[]      _SendBuffer;
+        protected readonly byte[]      _RecvBuffer;
+
         public TcpMessageChannel()
         {
+
+        }
+
+        public TcpMessageChannel(int id, TcpMessageChannelSettings Settings)
+        {
+            ChannelId = id;
+            _Settings = Settings;
             _ChannelSocket = null;
             ReceiveEventArgs = new SocketAsyncEventArgs();
             SendEventArgs = new SocketAsyncEventArgs();
@@ -44,9 +48,10 @@ namespace SSLServer
             ActiveDateTime = DateTime.Now;
 
             _SendStream = new ByteStream();
-            _SendMessageQueue = new ConcurrentQueue<object>();
+            _RecvStream = new ByteStream();
+            _SendBuffer = new byte[Settings.SendBufferSize];
+            _RecvBuffer = new byte[Settings.RecvBufferSize];
             _IsServerChannel = true;
-            _ReceivedBytes = 0;
             _SendLocked = 0;
         }
 
@@ -65,65 +70,17 @@ namespace SSLServer
             return success;
         }
 
-        /// <summary>
-        /// 客户端验证服务器证书
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="certificate"></param>
-        /// <param name="chain"></param>
-        /// <param name="sslPolicyErrors"></param>
-        /// <returns></returns>
-        private bool ValidateServerCertificate(
-              object sender,
-              X509Certificate2 certificate,
-              X509Chain chain,
-              SslPolicyErrors sslPolicyErrors)
-        {
-            if (sslPolicyErrors == SslPolicyErrors.None) return true;
-
-            // Do not allow this client to communicate with unauthenticated servers.
-            return true;
-        }
-
-        private void EndAuthenticateAsServer(IAsyncResult result)
-        {
-            try
-            {
-                _SslStream.EndAuthenticateAsServer(result); 
-                if (_SslStream.IsAuthenticated)
-                {
-                    _SslStream.ReadTimeout = -1;
-                }
-                else
-                {
-                }
-            }
-            catch (Exception ex)
-            {
-                
-            }
-        }
-
         public virtual void Accept(Socket ClientSocket)
         {
             _IsServerChannel = true;
             _ChannelSocket = ClientSocket;
             ReceiveEventArgs.AcceptSocket = _ChannelSocket;
-            if (UseSSL)
-            {
-                _SocketStream = new SocketStream();
-                _SocketStream.OnRecvData += OnSslDecryptedData;
-                _SocketStream.OnRecvByte += OnSslDecryptedByte;
-                _SslStream = new SslStream(_SocketStream);
-                _SslStream.BeginAuthenticateAsServer(Certificate, EndAuthenticateAsServer,null);
-            }
             StartReceive();
         }
 
         protected bool StartReceive()
         {
-            if (UseSSL) ReceiveEventArgs.SetBuffer(_SslRecvBuffer, 0, _SslRecvBuffer.Length);
-            else ReceiveEventArgs.SetBuffer(ReceiveBuffer, ReceiveBufferOffset, ReceiveBufferSize - ReceiveBufferOffset);
+            ReceiveEventArgs.SetBuffer(_RecvBuffer, 0, _RecvBuffer.Length);
             if (!_ChannelSocket.ReceiveAsync(ReceiveEventArgs))
             {
                 Log.Debug("ChannelSocket.ReceiveAsync 事件已同步完成");
@@ -134,109 +91,63 @@ namespace SSLServer
 
         void ReceiveEvent_Completed(object sender, SocketAsyncEventArgs ReceiveEventArgs)
         {
-            Log.Debug("ChannelSocket.ReceiveAsync 异步事件完成");
+            //Log.Debug("ChannelSocket.ReceiveAsync 异步事件完成");
             ProcessReceive(ReceiveEventArgs);
         }
 
         protected virtual void ProcessReceive(SocketAsyncEventArgs ReceiveEventArgs)
         {
             ActiveDateTime = DateTime.Now;
-            if (ReceiveEventArgs.SocketError != SocketError.Success)
+            if (ReceiveEventArgs.SocketError != SocketError.Success ||
+                ReceiveEventArgs.BytesTransferred == 0)
             {
                 Log.Error(ReceiveEventArgs.SocketError.ToString());
                 Close();
                 return;
             }
             Log.Debug("Receive " + ReceiveEventArgs.BytesTransferred + " bytes");
-            if (ReceiveEventArgs.BytesTransferred == 0)
-            {
-                StartReceive();
-                return;
-            }
-            if (UseSSL)
-            {
-                _SocketStream.WriteRecvData(_SslRecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
-                while (_SslStream.IsAuthenticated)
-                {
-                    try
-                    {
-                        int Bytes = _SslStream.Read(ReceiveBuffer, ReceiveBufferOffset, ReceiveBufferSize - ReceiveBufferOffset);
-                        _ReceivedBytes += Bytes;
-                        ProcessReceivedData();
-                    }
-                    catch(TimeoutException ex)
-                    {
-                        Log.Warn(ex.Message);
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        try
-                        {
-                            int Bytes = _SslStream.Read(ReceiveBuffer, ReceiveBufferOffset, ReceiveBufferSize - ReceiveBufferOffset);
-                        }
-                        catch (Exception ex1)
-                        {
-                        }
-                            Log.Warn(ex.Message);
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                _ReceivedBytes += ReceiveEventArgs.BytesTransferred;
-                ProcessReceivedData();
-            }
+            _RecvStream.Write(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
+            ProcessReceivedData();
             StartReceive();
         }
 
         protected void ProcessReceivedData()
         {
-            int offset = ReceiveBufferOffset;
-            string msg = Encoding.ASCII.GetString(ReceiveBuffer, ReceiveBufferOffset, _ReceivedBytes);
-            Console.Write(msg);
-            Send(ReceiveBuffer, ReceiveBufferOffset, _ReceivedBytes);
-            ReceiveBufferOffset = 0;
-            _ReceivedBytes = 0;
+            while(_RecvStream.DataAvailable)
+            {
+                int bytes = _RecvStream.Read(_RecvBuffer, 0, _RecvBuffer.Length);
+                if (bytes <= 0) break;
+                string msg = Encoding.ASCII.GetString(_RecvBuffer, 0, bytes);
+                Console.Write(msg);
+                Send(_RecvBuffer, 0, bytes);
+            }
             return;
-            while (_ReceivedBytes >= 2)
+
+            while (_RecvStream.Length >= 2)
             {
                 //packet_size包含自身的2字节长度
-                int packet_size = BitConverter.ToUInt16(ReceiveBuffer, offset);
-                if (_ReceivedBytes < packet_size) break;
-                ProcessReceivedPacket(ReceiveBuffer, offset + 2, packet_size - 2);
-                _ReceivedBytes -= packet_size;
-                offset += packet_size;
-            }
-            if (_ReceivedBytes > 0)
-            {
-                Buffer.BlockCopy(ReceiveBuffer, offset, ReceiveBuffer, ReceiveBufferOffset, _ReceivedBytes);
-                ReceiveBufferOffset = 0;
+                int bytes = _RecvStream.Peek(_RecvBuffer, 0, 2);
+                if (bytes != 2) break;
+                int packet_size = BitConverter.ToUInt16(_RecvBuffer, 0);
+                if (_RecvStream.Length >= packet_size)
+                {
+                    byte[] msgbuf = new byte[packet_size];
+                    bytes = _RecvStream.Read(msgbuf, 0, packet_size);
+                    if (bytes != packet_size) break;
+                    ProcessReceivedPacket(msgbuf, 0, packet_size);
+                }
             }
         }
 
         protected void ProcessReceivedPacket(byte[] buffer, int offset, int count)
         {
-            //消息解码必须同步完成，否则buffer中的数据可能会出现一致性问题
-            //Message msg = Message.Decode(buffer, offset, count);
-            //if (msg == null) throw new ObjectDisposedException("Bad packet");
+            MessageHeader msghdr = ProtobufSerializer.Deserialize(buffer, offset, count);
+            if (msghdr == null) return ;
+
             //OnReceivedMessage(msg);
         }
 
-        void OnSslDecryptedData(Byte[] buffer, Int32 offset, Int32 count)
-        {
-            Log.Debug(count + " bytes");
-            Send(buffer, offset, count);
-        }
-
-        void OnSslDecryptedByte(Byte value)
-        {
-            Log.Debug("1 byte");
-            SendByte(value);
-        }
-
-        bool Send(Byte[] buffer, Int32 offset, Int32 count)
+        protected virtual bool Send(Byte[] buffer, Int32 offset, Int32 count)
         {
             _SendStream.Write(buffer, offset, count);
             Send();
@@ -292,7 +203,11 @@ namespace SSLServer
 
         public void Close()
         {
-            if (_ChannelSocket != null) _ChannelSocket.Shutdown(SocketShutdown.Both);
+            if (_ChannelSocket != null)
+            {
+                _ChannelSocket.Shutdown(SocketShutdown.Both);
+                _ChannelSocket.Close();
+            }
             _ChannelSocket = null;
         }
     }

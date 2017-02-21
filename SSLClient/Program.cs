@@ -62,7 +62,7 @@ namespace SSLClient
             {
                 // Create a TCP/IP client socket.
                 // machineName is the host running the server application.
-                TcpClient client = new TcpClient(machineName, 901);
+                TcpClient client = new TcpClient(machineName, 1234);
                 Console.WriteLine("Client connected.");
                 // Create an SSL stream that will close the client's stream.
                 sslStream = new SslStream(client.GetStream(), false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
@@ -79,7 +79,7 @@ namespace SSLClient
                 //certs.Add(cert);
                 try
                 {
-                    sslStream.AuthenticateAsClient("localhost", null, SslProtocols.Tls, false);
+                    sslStream.AuthenticateAsClient("localhost", null, SslProtocols.Tls12, false);
                 }
                 catch (AuthenticationException e)
                 {

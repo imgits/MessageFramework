@@ -18,13 +18,13 @@ namespace StreamSSL
 		_SslServerStream  *m_SslServerStream;
 		
 		SslOutputDelegate^   m_SslServerTokenOutputDelegate;
-		SslOutputDelegate^   m_SslEncryptedDataOutputDelegate;
-		SslOutputDelegate^   m_SslDecryptedDataOutputDelegate;
+		SslOutputDelegate^   m_SslEncryptDataOutputDelegate;
+		SslOutputDelegate^   m_SslDecryptDataOutputDelegate;
 
 	public:
 		SslOutputHandler^ ServerTokenOutput;
-		SslOutputHandler^ EncryptedDataOutput;
-		SslOutputHandler^ DecryptedDataOutput;
+		SslOutputHandler^ EncryptDataOutput;
+		SslOutputHandler^ DecryptDataOutput;
 
 		property bool IsAuthenticated
 		{
@@ -40,22 +40,21 @@ namespace StreamSSL
 			SslOutputCallback cb = static_cast<SslOutputCallback>(ptr.ToPointer());
 			m_SslServerStream->ServerTokenOutput = cb;
 
-			m_SslEncryptedDataOutputDelegate = gcnew SslOutputDelegate(this, &SslServerStream::SslEncryptedDataOutputCallback);
-			ptr = Marshal::GetFunctionPointerForDelegate(m_SslEncryptedDataOutputDelegate);
+			m_SslEncryptDataOutputDelegate = gcnew SslOutputDelegate(this, &SslServerStream::SslEncryptDataOutputCallback);
+			ptr = Marshal::GetFunctionPointerForDelegate(m_SslEncryptDataOutputDelegate);
 			cb = static_cast<SslOutputCallback>(ptr.ToPointer());
-			m_SslServerStream->EncryptedDataOutput = cb;
+			m_SslServerStream->EncryptDataOutput = cb;
 
-			m_SslDecryptedDataOutputDelegate = gcnew SslOutputDelegate(this, &SslServerStream::SslDecryptedDataOutputCallback);
-			ptr = Marshal::GetFunctionPointerForDelegate(m_SslDecryptedDataOutputDelegate);
+			m_SslDecryptDataOutputDelegate = gcnew SslOutputDelegate(this, &SslServerStream::SslDecryptDataOutputCallback);
+			ptr = Marshal::GetFunctionPointerForDelegate(m_SslDecryptDataOutputDelegate);
 			cb = static_cast<SslOutputCallback>(ptr.ToPointer());
-			m_SslServerStream->DecryptedDataOutput = cb;
-
-
-
+			m_SslServerStream->DecryptDataOutput = cb;
 		}
 		
 		~SslServerStream()
 		{
+			m_SslServerStream->Shutdown();
+			m_SslServerStream->Close();
 			delete m_SslServerStream;
 		}
 
@@ -88,6 +87,17 @@ namespace StreamSSL
 			Marshal::Copy(buffer, offset, IntPtr(data), count); // This doesn't work
 			return m_SslServerStream->DecryptData(data, count);
 		}
+
+		void Shutdown()
+		{
+			m_SslServerStream->Shutdown();
+		}
+
+		void Close()
+		{
+			m_SslServerStream->Close();
+		}
+
 	private:
 		bool SslServerTokenOutputCallback(BYTE* buffer, int count)
 		{
@@ -97,20 +107,20 @@ namespace StreamSSL
 			return ServerTokenOutput(gcbuf, 0, count);
 		}
 
-		bool SslEncryptedDataOutputCallback(BYTE* buffer, int count)
+		bool SslEncryptDataOutputCallback(BYTE* buffer, int count)
 		{
-			if (EncryptedDataOutput == nullptr) return false;
+			if (EncryptDataOutput == nullptr) return false;
 			array<Byte>^ gcbuf = gcnew array<Byte>(count);
 			Marshal::Copy((IntPtr)buffer, gcbuf, 0, count);
-			return EncryptedDataOutput(gcbuf, 0, count);
+			return EncryptDataOutput(gcbuf, 0, count);
 		}
 
-		bool SslDecryptedDataOutputCallback(BYTE* buffer, int count)
+		bool SslDecryptDataOutputCallback(BYTE* buffer, int count)
 		{
-			if (DecryptedDataOutput == nullptr) return false;
+			if (DecryptDataOutput == nullptr) return false;
 			array<Byte>^ gcbuf = gcnew array<Byte>(count);
 			Marshal::Copy((IntPtr)buffer, gcbuf, 0, count);
-			return DecryptedDataOutput(gcbuf, 0, count);
+			return DecryptDataOutput(gcbuf, 0, count);
 		}
 	};
 }

@@ -38,6 +38,9 @@
     <Reference Include="protobuf-net, Version=2.1.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
       <HintPath>..\nsspi-master\packages\protobuf-net.2.1.0\lib\net451\protobuf-net.dll</HintPath>
     </Reference>
+    <Reference Include="SslServerStream">
+      <HintPath>..\SslServerStream\Debug\SslServerStream.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -59,10 +62,12 @@
     <Compile Include="SocketStream.cs" />
     <Compile Include="SslMessageChannel.cs" />
     <Compile Include="StreamSSL.cs" />
+    <Compile Include="TcpClientMessageChannel.cs" />
     <Compile Include="TcpMessageChannel.cs" />
     <Compile Include="TcpMessageChannelManager.cs" />
     <Compile Include="TcpMessageChannelSettings.cs" />
     <Compile Include="TcpMessageServer.cs" />
+    <Compile Include="TcpServerMessageChannel.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

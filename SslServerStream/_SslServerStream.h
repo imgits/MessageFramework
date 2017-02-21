@@ -16,30 +16,30 @@ class _SslServerStream
 private:
 	CtxtHandle     m_CtxtHandle;
 	CredHandle	   m_CredHandle;
+	SecPkgContext_StreamSizes m_StreamSizes;
 public:
-	bool		  IsAuthenticated;
+	bool			  IsAuthenticated;
 	SslOutputCallback ServerTokenOutput;
-	SslOutputCallback EncryptedDataOutput;
-	SslOutputCallback DecryptedDataOutput;
+	SslOutputCallback EncryptDataOutput;
+	SslOutputCallback DecryptDataOutput;
 public:
 	_SslServerStream()
 	{
 		IsAuthenticated = false;
 		SecInvalidateHandle(&m_CtxtHandle);
 		SecInvalidateHandle(&m_CredHandle);
+		memset(&m_StreamSizes, 0, sizeof(m_StreamSizes));
 	}
 
 	~_SslServerStream()
 	{
-		if (!SecIsValidHandle(&m_CredHandle)) ::FreeCredentialsHandle(&m_CredHandle);
-		if (!SecIsValidHandle(&m_CtxtHandle)) ::FreeCredentialsHandle(&m_CtxtHandle);
-		SecInvalidateHandle(&m_CtxtHandle);
-		SecInvalidateHandle(&m_CredHandle);
+		Close();
 	}
 
 public:
 	bool CreateCredentials(PCCERT_CONTEXT pCertContext)
 	{
+		Close();
 		// Build Schannel credential structure.
 		SCHANNEL_CRED   SchannelCred = { 0 };
 		SchannelCred.dwVersion = SCHANNEL_CRED_VERSION;
@@ -48,7 +48,7 @@ public:
 			SchannelCred.cCreds = 1;
 			SchannelCred.paCred = &pCertContext;
 		}
-		SchannelCred.grbitEnabledProtocols = SP_PROT_SERVERS;
+		SchannelCred.grbitEnabledProtocols = SP_PROT_SERVERS | SP_PROT_TLS1_1_SERVER | SP_PROT_TLS1_2_SERVER;
 		SchannelCred.dwFlags = SCH_USE_STRONG_CRYPTO;
 
 		SECURITY_STATUS Status;
@@ -77,6 +77,8 @@ public:
 
 	bool AcceptClientToken(BYTE* TokenData, int TokenSize)
 	{
+		if (ServerTokenOutput == NULL) return false;
+
 		DWORD dwSSPIFlags =
 			ASC_REQ_SEQUENCE_DETECT |
 			ASC_REQ_REPLAY_DETECT |
@@ -107,30 +109,24 @@ public:
 			&OutputBufferDesc,										// [out] The output buffer, for messages to be sent to the other end
 			&dwSSPIOutFlags,								// [out] The flags associated with the negotiated connection
 			&tsExpiry);
-		// Send requested output
-		//if (status == SEC_E_OK) IsAuthenticated = true;
-		
-		if (status == SEC_E_OK || status == SEC_I_CONTINUE_NEEDED ||
-			(FAILED(status) && (0 != (dwSSPIOutFlags & ASC_RET_EXTENDED_ERROR))))
+		switch (status)
 		{
+		case SEC_E_OK:
+			IsAuthenticated = true;
+			::QueryContextAttributes(
+				&m_CtxtHandle,
+				SECPKG_ATTR_STREAM_SIZES,
+				&m_StreamSizes);
+		case SEC_I_CONTINUE_NEEDED:
 			if (OutputBuffer.cbBuffer >0 && OutputBuffer.pvBuffer != NULL)
 			{
-				if (ServerTokenOutput !=NULL) ServerTokenOutput((BYTE*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer);
+				ServerTokenOutput((BYTE*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer);
 				::FreeContextBuffer(&OutputBuffer);
 			}
-		}
-		if (status == SEC_E_INCOMPLETE_MESSAGE || status == SEC_I_CONTINUE_NEEDED)
-		{
+		case SEC_E_INCOMPLETE_MESSAGE:
 			return true;
-		}
-		else if (status == SEC_E_OK)
-		{
-			IsAuthenticated = true;
-			return true;
-		}
-		else
-		{
-			return false;
+		default:
+			break;
 		}
 		return false;
 
@@ -138,59 +134,59 @@ public:
 
 	bool EncryptData(BYTE* DataBuf, int DataSize)
 	{
-		if (EncryptedDataOutput == NULL) return false;
-
-		// encrypt the pre buffer to the write buffer
-		SecPkgContext_Sizes sizes;
-		::QueryContextAttributes(
-			&m_CtxtHandle,
-			SECPKG_ATTR_SIZES,
-			&sizes);
-
-		SecPkgContext_StreamSizes streamSizes;
-		::QueryContextAttributes(
-			&m_CtxtHandle,
-			SECPKG_ATTR_STREAM_SIZES,
-			&streamSizes);
-
-		DWORD cbHeader = streamSizes.cbHeader;
-		DWORD cbMsg = static_cast<DWORD>(DataSize);
-		DWORD cbTrailer = streamSizes.cbTrailer;
-		DWORD cbPacket = cbHeader + cbMsg + cbTrailer;
-
-		BYTE* EncryptedMsg = new BYTE[cbPacket];
-
-		memcpy(EncryptedMsg + cbHeader, DataBuf, DataSize);
-
-		SecBuffer MessageBuffer[4] = 
-		{ 
-			{ cbHeader,	SECBUFFER_STREAM_HEADER,	EncryptedMsg },
-			{ cbMsg,	SECBUFFER_DATA ,			EncryptedMsg + cbHeader },
-			{ cbTrailer,SECBUFFER_STREAM_TRAILER,	EncryptedMsg + cbHeader + cbMsg },
-			{ 0,		SECBUFFER_EMPTY ,			NULL }
-		};
-
-		SecBufferDesc MsgBufferDesc = { SECBUFFER_VERSION, 4, MessageBuffer};
-
-		SECURITY_STATUS status = ::EncryptMessage(
-			&m_CtxtHandle,
-			0,
-			&MsgBufferDesc,
-			0);
-		if (status != SEC_E_OK)
+		if (EncryptDataOutput == NULL) return false;
+		BYTE* EncryptBuffer = NULL;
+		int   EncryptBufferSize = 0;
+		int   EncryptedSize = 0;
+		bool  result = false;
+		while (DataSize >0)
 		{
-			delete[] EncryptedMsg;
-			return false;
+			int HeaderSize = m_StreamSizes.cbHeader;
+			int MsgSize = DataSize <= m_StreamSizes.cbMaximumMessage ? DataSize : m_StreamSizes.cbMaximumMessage;
+			int TrailerSize = m_StreamSizes.cbTrailer;
+			int PacketSize = HeaderSize + MsgSize + TrailerSize;
+			//尽量避免重复分配释放内存
+			if (EncryptBufferSize < PacketSize)
+			{
+				if (EncryptBuffer != NULL) delete[] EncryptBuffer;
+				EncryptBuffer = new BYTE[PacketSize];
+				EncryptBufferSize = PacketSize;
+			}
+			memcpy(EncryptBuffer + HeaderSize, DataBuf+ EncryptedSize, DataSize);
+
+			SecBuffer MessageBuffer[4] =
+			{
+				{ HeaderSize,	SECBUFFER_STREAM_HEADER,	EncryptBuffer },
+				{ MsgSize,		SECBUFFER_DATA ,			EncryptBuffer + HeaderSize },
+				{ TrailerSize,	SECBUFFER_STREAM_TRAILER,	EncryptBuffer + HeaderSize + MsgSize },
+				{ 0,			SECBUFFER_EMPTY ,			NULL }
+			};
+
+			SecBufferDesc MsgBufferDesc = { SECBUFFER_VERSION, 4, MessageBuffer };
+
+			SECURITY_STATUS status = ::EncryptMessage(
+				&m_CtxtHandle,
+				0,
+				&MsgBufferDesc,
+				0);
+			if (status != SEC_E_OK)
+			{
+				result = false;
+				break;
+			}
+			PacketSize = HeaderSize + MsgSize + MessageBuffer[2].cbBuffer;
+			result = EncryptDataOutput(EncryptBuffer, PacketSize);
+			if (!result) break;
+			DataSize -= MsgSize;
+			EncryptedSize += MsgSize;
 		}
-		bool result = EncryptedDataOutput(EncryptedMsg, cbPacket);
-		delete[] EncryptedMsg;
+		if (EncryptBuffer != NULL) delete[] EncryptBuffer;
 		return result;
 	}
 
-
 	bool DecryptData(BYTE* DataBuf, int DataSize)
 	{
-		if (DecryptedDataOutput == NULL) return false;
+		if (DecryptDataOutput == NULL) return false;
 
 		// Prepare decryption buffers
 		SecBuffer DecryptBuffers[4]=
@@ -210,7 +206,7 @@ public:
 
 		if (status == SEC_E_INCOMPLETE_MESSAGE)
 		{
-			return true; // Disconnect signal
+			return true; 
 		}
 		else if (status == SEC_E_OK)
 		{
@@ -219,24 +215,113 @@ public:
 			{
 				if (DecryptBuffers[i].BufferType == SECBUFFER_DATA && DecryptBuffers[i].cbBuffer >0 && DecryptBuffers[i].pvBuffer!=NULL)
 				{
-					DecryptedDataOutput((BYTE*)DecryptBuffers[i].pvBuffer, DecryptBuffers[i].cbBuffer);
-					if (DecryptBuffers[i].pvBuffer != DataBuf) ::FreeContextBuffer(&DecryptBuffers[i].pvBuffer);
+					DecryptDataOutput((BYTE*)DecryptBuffers[i].pvBuffer, DecryptBuffers[i].cbBuffer);
+					::FreeContextBuffer(&DecryptBuffers[i].pvBuffer);
 				}
 				else if(DecryptBuffers[i].BufferType == SECBUFFER_EXTRA && DecryptBuffers[i].cbBuffer >0 && DecryptBuffers[i].pvBuffer != NULL)
-				{
+				{//还有剩余数据，继续解密
 					if (!DecryptData((BYTE*)DecryptBuffers[i].pvBuffer, DecryptBuffers[i].cbBuffer))
 					{
 						result = false;
 					};
-					if (DecryptBuffers[i].pvBuffer != DataBuf) ::FreeContextBuffer(&DecryptBuffers[i].pvBuffer);
+					::FreeContextBuffer(&DecryptBuffers[i].pvBuffer);
 				}
 			}
 			return result;
 		}
+		for (int i = 1; i < 4; i++)
+		{
+			if (DecryptBuffers[i].pvBuffer != NULL)
+			{
+				::FreeContextBuffer(&DecryptBuffers[i].pvBuffer);
+			}
+		}
 		return false;
 	}
 
+	// In theory a connection may switch in and out of SSL mode.
+	// This stops SSL, but it has not been tested
+	void Close()
+	{
+		if (!SecIsValidHandle(&m_CredHandle)) ::FreeCredentialsHandle(&m_CredHandle);
+		if (!SecIsValidHandle(&m_CtxtHandle)) ::FreeCredentialsHandle(&m_CtxtHandle);
+		SecInvalidateHandle(&m_CtxtHandle);
+		SecInvalidateHandle(&m_CredHandle);
+	}
 
+	void Shutdown()
+	{
+		if (EncryptDataOutput == NULL) return;
+
+		DWORD           dwType;
+		PBYTE           pbMessage;
+		DWORD           cbMessage;
+		DWORD           cbData;
+
+		SecBufferDesc   OutBufferDesc;
+		SecBuffer       OutBuffers[1];
+		DWORD           dwSSPIFlags;
+		DWORD           dwSSPIOutFlags;
+		TimeStamp       tsExpiry;
+		DWORD           Status;
+
+		// Notify schannel that we are about to close the connection.
+
+		dwType = SCHANNEL_SHUTDOWN;
+
+		OutBuffers[0].pvBuffer = &dwType;
+		OutBuffers[0].BufferType = SECBUFFER_TOKEN;
+		OutBuffers[0].cbBuffer = sizeof(dwType);
+
+		OutBufferDesc.cBuffers = 1;
+		OutBufferDesc.pBuffers = OutBuffers;
+		OutBufferDesc.ulVersion = SECBUFFER_VERSION;
+
+		Status = ::ApplyControlToken(&m_CtxtHandle, &OutBufferDesc);
+
+		if (FAILED(Status)) return;
+			// Build an SSL close notify message.
+
+		dwSSPIFlags =
+			ASC_REQ_SEQUENCE_DETECT |
+			ASC_REQ_REPLAY_DETECT |
+			ASC_REQ_CONFIDENTIALITY |
+			ASC_REQ_EXTENDED_ERROR |
+			ASC_REQ_ALLOCATE_MEMORY |
+			ASC_REQ_STREAM;
+
+		OutBuffers[0].pvBuffer = NULL;
+		OutBuffers[0].BufferType = SECBUFFER_TOKEN;
+		OutBuffers[0].cbBuffer = 0;
+
+		OutBufferDesc.cBuffers = 1;
+		OutBufferDesc.pBuffers = OutBuffers;
+		OutBufferDesc.ulVersion = SECBUFFER_VERSION;
+
+		Status = ::AcceptSecurityContext(
+			&m_CredHandle,			// Which certificate to use, already established
+			&m_CtxtHandle,				// The context handle if we have one, ask to make one if this is first call
+			NULL,							// Input buffer list
+			dwSSPIFlags,				// What we require of the connection
+			0,								// Data representation, not used 
+			NULL,							// Returned context handle, not used, because we already have one
+			&OutBufferDesc,					// [out] The output buffer, for messages to be sent to the other end
+			&dwSSPIOutFlags,			// [out] The flags associated with the negotiated connection
+			&tsExpiry);					// [out] Receives context expiration time
+
+		if (FAILED(Status)) return;
+
+		pbMessage = (PBYTE)OutBuffers[0].pvBuffer;
+		cbMessage = OutBuffers[0].cbBuffer;
+
+		// Send the close notify message to the client.
+
+		if (pbMessage != NULL && cbMessage != 0)
+		{
+			EncryptDataOutput(pbMessage, cbMessage);
+			::FreeContextBuffer(&OutBuffers[0]);
+		}
+	}
 
 };
 
