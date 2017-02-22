@@ -6,23 +6,22 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using StreamSSL;
+using SecStream;
 
 namespace MessageFramework
 {
     class SslMessageChannel : TcpMessageChannel
     {
         readonly X509Certificate2 _Certificate;
-        private SslServerStream _SslServerStream;
+        private StreamSSL _StreamSSL;
 
         public SslMessageChannel(int id, ChannelSettings Settings, X509Certificate2 Certificate)
             :base(id, Settings)
         {
             _Certificate = Certificate;
-            _SslServerStream = new SslServerStream();
-            _SslServerStream.ServerTokenOutput = OnSslEncryptedData;
-            _SslServerStream.EncryptDataOutput = OnSslEncryptedData;
-            _SslServerStream.DecryptDataOutput = OnSslDecryptedData;
+            _StreamSSL = new StreamSSL();
+            _StreamSSL.EncryptDataOutput = OnSslEncryptedData;
+            _StreamSSL.DecryptDataOutput = OnSslDecryptedData;
         }
 
         public override void Accept(Socket ClientSocket)
@@ -31,7 +30,7 @@ namespace MessageFramework
             _ChannelSocket = ClientSocket;
             ReceiveEventArgs.AcceptSocket = _ChannelSocket;
             
-            _SslServerStream.CreateCredentials(_Certificate);
+            _StreamSSL.Initialize(_Certificate);
             
             StartReceive();
         }
@@ -48,26 +47,19 @@ namespace MessageFramework
             }
             Log.Debug("Receive " + ReceiveEventArgs.BytesTransferred + " bytes");
 
-            if (!_SslServerStream.IsAuthenticated)
-            {
-                _SslServerStream.AcceptClientToken(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
-            }
-            else
-            {
-                _SslServerStream.Decrypt(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
-            }
+            _StreamSSL.Decrypt(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
             StartReceive();
         }
 
         protected override bool Send(Byte[] buffer, Int32 offset, Int32 count)
         {
-            return _SslServerStream.Encrypt(buffer, offset, count);
+            return _StreamSSL.Encrypt(buffer, offset, count);
         }
 
         public override bool SendMessage<T>(T msg)
         {
             byte[] buffer = ProtobufSerializer.Serialize<T>(msg);
-            return _SslServerStream.Encrypt(buffer, 0, buffer.Length);
+            return _StreamSSL.Encrypt(buffer, 0, buffer.Length);
         }
 
         bool OnSslEncryptedData(byte[] buffer, int offset, int count)

@@ -11,11 +11,11 @@ using namespace System::Security::Permissions;
 // 控制。更改这些特性值可修改
 // 与程序集关联的信息。
 //
-[assembly:AssemblyTitleAttribute(L"SslServerStream")];
+[assembly:AssemblyTitleAttribute(L"StreamSSL")];
 [assembly:AssemblyDescriptionAttribute(L"")];
 [assembly:AssemblyConfigurationAttribute(L"")];
 [assembly:AssemblyCompanyAttribute(L"Microsoft")];
-[assembly:AssemblyProductAttribute(L"SslServerStream")];
+[assembly:AssemblyProductAttribute(L"StreamSSL")];
 [assembly:AssemblyCopyrightAttribute(L"Copyright (c) Microsoft 2017")];
 [assembly:AssemblyTrademarkAttribute(L"")];
 [assembly:AssemblyCultureAttribute(L"")];

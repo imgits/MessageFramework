@@ -15,16 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SslServerStream.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="Stdafx.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="_SslServerStream.h">
+    <ClInclude Include="_StreamSSL.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="StreamSSL.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

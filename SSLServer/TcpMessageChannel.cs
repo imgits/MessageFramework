@@ -8,7 +8,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using StreamSSL;
+using SecStream;
 
 namespace MessageFramework
 {
@@ -34,6 +34,7 @@ namespace MessageFramework
         protected readonly byte[]      _SendBuffer;
         protected readonly byte[]      _RecvBuffer;
 
+        Dictionary<long, object> SendRecvMessages = new Dictionary<long, object>();
 
         public TcpMessageChannel(int id, ChannelSettings Settings)
         {
@@ -128,8 +129,17 @@ namespace MessageFramework
         {
             MessageHeader msghdr = ProtobufSerializer.Deserialize(buffer, offset, count);
             if (msghdr == null) return ;
-
-            //OnReceivedMessage(msg);
+            long ackid = msghdr.ackid;
+            if (SendRecvMessages.ContainsKey(ackid))
+            {
+                ManualResetEvent WaitEvent = SendRecvMessages[ackid] as ManualResetEvent;
+                SendRecvMessages[ackid] = msghdr;
+                WaitEvent.Set();
+            }
+            else if (OnMessageReceived!=null)
+            {
+                OnMessageReceived(this, msghdr);
+            }
         }
 
         protected virtual bool Send(Byte[] buffer, Int32 offset, Int32 count)
@@ -150,6 +160,31 @@ namespace MessageFramework
         {
             byte[] buffer = ProtobufSerializer.Serialize<T>(msg);
             return Send(buffer, 0, buffer.Length);
+        }
+
+        public T2 SendRecvMessage<T1, T2>(T1 msg, int timeout) where T1 : class where T2 : class
+        {
+            T2 ReceivedMsg = null;
+            long msgid = (msg as MessageHeader).id;
+            try
+            {
+                byte[] buffer = ProtobufSerializer.Serialize<T1>(msg);
+                SendRecvMessageArgs args = new SendRecvMessageArgs();
+                ManualResetEvent WaitEvent = new ManualResetEvent(false);
+                SendRecvMessages[msgid] = WaitEvent;
+                if (Send(buffer, 0, buffer.Length))
+                {
+                    if (WaitEvent.WaitOne(timeout))
+                    {
+                        ReceivedMsg = SendRecvMessages[msgid] as T2;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+            if (SendRecvMessages.ContainsKey(msgid)) SendRecvMessages.Remove(msgid);
+            return ReceivedMsg;
         }
 
         protected void SendEvent_Completed(object sender, SocketAsyncEventArgs arg)
@@ -183,6 +218,14 @@ namespace MessageFramework
             if (!SendAsync)
             {
                 Interlocked.Exchange(ref _SendLocked, 0);
+            }
+        }
+
+        public void Disconnect()
+        {
+            if (_ChannelSocket != null)
+            {
+                _ChannelSocket.Disconnect(true);
             }
         }
 
