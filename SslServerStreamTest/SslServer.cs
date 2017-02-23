@@ -5,34 +5,25 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Net;
-using SecStream;
+using StreamSSL;
 using System.Security.Cryptography.X509Certificates;
 
 namespace SslServerStreamTest
 {
-    class ServerSSL
+    class SslServer
     {
         TcpListener Listener;
         Socket client;
-        StreamSSL _StreamSSL;
+        SslServerStream SslStream;
         X509Certificate2 X509Cert;
-        public ServerSSL(int port)
+        public SslServer(int port)
         {
             Listener = new TcpListener(IPAddress.Any, port);
             client = null;
-            _StreamSSL = new StreamSSL();
-            _StreamSSL.EncryptOutput = (buffer, offset, count) =>
-            {
-                int bytes = client.Send(buffer, offset, count, SocketFlags.None);
-                return (bytes == count);
-            };
-            _StreamSSL.DecryptDataOutput = (byte[] buffer, int offset, int count) =>
-            {
-                string msg = Encoding.UTF8.GetString(buffer, offset, count);
-                Console.Write("Recv:" + msg);
-                _StreamSSL.Encrypt(buffer, offset, count);
-                return true;
-            };
+            SslStream = new SslServerStream();
+            SslStream.ServerTokenOutput = OnSslServerToken;
+            SslStream.EncryptDataOutput = OnSslEncryptedData;
+            SslStream.DecryptDataOutput = OnSslDecryptedData;
 
             X509Cert = new X509Certificate2("E:/MessageFramework/SelfCert.pfx", "messageframework");
         }
@@ -41,36 +32,44 @@ namespace SslServerStreamTest
         {
             Listener.Start();
             client = Listener.AcceptSocket();
-            if (!_StreamSSL.Initialize(X509Cert)) return false;
+            if (!SslStream.CreateCredentials(X509Cert)) return false;
             byte[] buffer = new byte[4096];
+            //认证
+            do
+            {
+                int bytes = client.Receive(buffer, 0, buffer.Length,SocketFlags.None);
+                if (bytes <= 0) break;
+                if (!SslStream.AcceptClientToken(buffer, 0, bytes)) break;
+            }while (!SslStream.IsAuthenticated);
+            //消息
             do
             {
                 int bytes = client.Receive(buffer, 0, buffer.Length, SocketFlags.None);
                 if (bytes <= 0) break;
-                if (!_StreamSSL.Decrypt(buffer, 0, bytes)) break;
+                if (!SslStream.Decrypt(buffer, 0, bytes)) break;
             }while (true);
 
             return false;
         }
 
-        bool OnSslToken(byte[] buffer,int offset, int count)
+        bool OnSslServerToken(byte[] buffer,int offset, int count)
         {
-            int bytes = client.Send(buffer, offset, count, SocketFlags.None);
+            int bytes = client.Send(buffer, 0, buffer.Length, SocketFlags.None);
             return (bytes == count);
         }
 
         bool OnSslEncryptedData(byte[] buffer, int offset, int count)
         {
-            int bytes = client.Send(buffer, offset, count, SocketFlags.None);
+            int bytes = client.Send(buffer, 0, buffer.Length, SocketFlags.None);
             return (bytes == count);
         }
 
         bool OnSslDecryptedData(byte[] buffer, int offset, int count)
         {
             //int bytes = client.Send(buffer, 0, buffer.Length, SocketFlags.None);
-            string msg = Encoding.UTF8.GetString(buffer, offset, count);
-            Console.Write("Recv:" + msg);
-            _StreamSSL.Encrypt(buffer, offset, count);
+            string msg = Encoding.ASCII.GetString(buffer, offset, count);
+            Console.Write(msg);
+            SslStream.Encrypt(buffer, offset, count);
             return true;
         }
     }

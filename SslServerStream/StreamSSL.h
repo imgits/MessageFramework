@@ -10,9 +10,9 @@ using namespace System::Runtime::InteropServices;
 using namespace System::Security::Cryptography::X509Certificates;
 using namespace System::Security::Authentication;
 
-delegate bool  SslOutputDelegate(BYTE* buffer, int count);
+private delegate bool  SslOutputDelegate(BYTE* buffer, int count);
 
-public delegate bool  SslOutputHandler(array<Byte>^buffer, int offset,int count);
+public  delegate bool  SslOutputHandler(array<Byte>^buffer, int offset,int count);
 
 namespace SecStream
 {
@@ -22,13 +22,13 @@ namespace SecStream
 		_StreamSSL  *m_StreamSSL;
 		
 		SslOutputDelegate^   m_SslTokenOutputDelegate;
-		SslOutputDelegate^   m_SslEncryptDataOutputDelegate;
+		SslOutputDelegate^   m_SslEncryptOutputDelegate;
 		SslOutputDelegate^   m_SslDecryptDataOutputDelegate;
 		bool				 m_InitializeAsClient;
 
 	public:
 		//SslOutputHandler^ TokenOutput;
-		SslOutputHandler^ EncryptDataOutput;
+		SslOutputHandler^ EncryptOutput;
 		SslOutputHandler^ DecryptDataOutput;
 
 		//认证已完成:return true
@@ -42,7 +42,7 @@ namespace SecStream
 		StreamSSL()
 		{
 			//TokenOutput = nullptr;
-			EncryptDataOutput = nullptr;
+			EncryptOutput = nullptr;
 			DecryptDataOutput = nullptr;
 			m_InitializeAsClient = false;
 
@@ -55,11 +55,11 @@ namespace SecStream
 			SslOutputCallback cb = static_cast<SslOutputCallback>(ptr.ToPointer());
 			m_StreamSSL->TokenOutput = cb;
 
-			//设置回调函数_StreamSSL::EncryptDataOutput
-			m_SslEncryptDataOutputDelegate = gcnew SslOutputDelegate(this, &StreamSSL::SslEncryptDataOutputCallback);
-			ptr = Marshal::GetFunctionPointerForDelegate(m_SslEncryptDataOutputDelegate);
+			//设置回调函数_StreamSSL::EncryptOutput
+			m_SslEncryptOutputDelegate = gcnew SslOutputDelegate(this, &StreamSSL::SslEncryptOutputCallback);
+			ptr = Marshal::GetFunctionPointerForDelegate(m_SslEncryptOutputDelegate);
 			cb = static_cast<SslOutputCallback>(ptr.ToPointer());
-			m_StreamSSL->EncryptDataOutput = cb;
+			m_StreamSSL->EncryptOutput = cb;
 
 			//设置回调函数_StreamSSL::DecryptDataOutput
 			m_SslDecryptDataOutputDelegate = gcnew SslOutputDelegate(this, &StreamSSL::SslDecryptDataOutputCallback);
@@ -258,22 +258,22 @@ namespace SecStream
 		}
 
 	private:
-		//认证输出数据包，通过EncryptDataOutput提交使用者
+		//认证输出数据包，通过EncryptOutput提交使用者
 		bool SslTokenOutputCallback(BYTE* buffer, int count)
 		{
-			if (EncryptDataOutput == nullptr) return false;
+			if (EncryptOutput == nullptr) return false;
 			array<Byte>^ gcbuf = gcnew array<Byte>(count);
 			Marshal::Copy((IntPtr)buffer, gcbuf, 0, count);
-			return EncryptDataOutput(gcbuf, 0, count);
+			return EncryptOutput(gcbuf, 0, count);
 		}
 
-		//加密输出数据包，通过EncryptDataOutput提交使用者
-		bool SslEncryptDataOutputCallback(BYTE* buffer, int count)
+		//加密输出数据包，通过EncryptOutput提交使用者
+		bool SslEncryptOutputCallback(BYTE* buffer, int count)
 		{
-			if (EncryptDataOutput == nullptr) return false;
+			if (EncryptOutput == nullptr) return false;
 			array<Byte>^ gcbuf = gcnew array<Byte>(count);
 			Marshal::Copy((IntPtr)buffer, gcbuf, 0, count);
-			return EncryptDataOutput(gcbuf, 0, count);
+			return EncryptOutput(gcbuf, 0, count);
 		}
 
 		//解密输出数据包，通过DecryptDataOutput提交使用者

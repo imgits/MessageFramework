@@ -7,6 +7,9 @@ using System.Text;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
+using MessageFramework;
+using SecStream;
+
 namespace SSLClient
 {
     using System;
@@ -149,22 +152,33 @@ namespace SSLClient
                 Environment.Exit(1);
             }
 
-            public static void Main(string[] args)
-            {
-                string machineName = null;
-                machineName = "127.0.0.1";
-                Thread.Sleep(1000);
-                try
-                {
-                    RunClient(machineName);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                Console.ReadLine();
-            }
+            
         }
     }
 
+    public class Program
+    {
+        static void TestTcpMessageClient()
+        {
+            ClientSettings _ClientSettings = new ClientSettings();
+            _ClientSettings.Host = "127.0.0.1";
+            _ClientSettings.Port = 1234;
+            _ClientSettings.ConnectTimeout = 10 * 1000;
+            TcpMessageClientTest client = new TcpMessageClientTest(_ClientSettings);
+            client.Start();
+        }
+
+        public static void Main(string[] args)
+        {
+            try
+            {
+                TestTcpMessageClient();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            Console.ReadLine();
+        }
+    }
 }

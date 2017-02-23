@@ -10,44 +10,44 @@ using System.Threading.Tasks;
 
 namespace MessageFramework
 {
-    class TcpMessageServer
+    public class TcpMessageServer
     {
         protected const int MAX_ACCEPTION_SCOKETS = 1;
 
         Socket  _ListenSocket;
         bool    _IsListening;
-        public X509Certificate2 Certificate { get; set; }
+
         TcpMessageChannelManager _ChannelManager;
-        TcpMessageServerSettings _ServerSettings;
+        ServerSettings _ServerSettings;
+
+        public event EventHandler<MessageHeader> ClientMessageHandler;
 
         SocketAsyncEventArgs[] AllAcceptEventArgs = new SocketAsyncEventArgs[MAX_ACCEPTION_SCOKETS];
+        Dictionary<Type, EventHandler<MessageHeader>> MessageHandlers = new Dictionary<Type, EventHandler<MessageHeader>>();
 
-        public TcpMessageServer(TcpMessageServerSettings ServerSettings)
+        public TcpMessageServer(ServerSettings ServerSettings, ChannelSettings ChannelSettings)
         {
             _ServerSettings = ServerSettings;
-            Certificate = null;
             _ListenSocket = null;
             _IsListening = false;
-            Certificate = null;
-            if (_ServerSettings.CertificateFile != null)
-            {
-                Certificate = new X509Certificate2(ServerSettings.CertificateFile, "messageframework");
-            }
-            _ChannelManager = new TcpMessageChannelManager(ServerSettings.MaxChannels, _ServerSettings.ChannelSettings);
+            ClientMessageHandler = null;
+
+            _ChannelManager = new TcpMessageChannelManager(ServerSettings.MaxChannels, ChannelSettings);
 
             TcpMessageChannel channel;
             for (int i = 0; i < ServerSettings.MaxChannels; i++)
             {
-                if (ServerSettings.UseSSL) channel = new SslMessageChannel(i, _ServerSettings.ChannelSettings, Certificate);
-                else channel = new TcpMessageChannel(i, _ServerSettings.ChannelSettings);
+                if (ServerSettings.UseSSL) channel = new SslMessageChannel(i, ChannelSettings, _ServerSettings.Certificate);
+                else channel = new TcpMessageChannel(i, ChannelSettings);
+                channel.OnMessageReceived += OnClientMessage;
                 _ChannelManager.Push(channel);
             }
 
         }
 
-        public void Start()
+        public bool Start()
         {
-            if (_IsListening) return;
+            if (_IsListening) return true;
             try
             {
                 _ListenSocket = new Socket(AddressFamily.InterNetwork,SocketType.Stream, ProtocolType.Tcp);
@@ -58,16 +58,19 @@ namespace MessageFramework
                 _IsListening = true;
 
                 //同时提交多个Accept事件请求
-                foreach(SocketAsyncEventArgs AcceptEventArgs in AllAcceptEventArgs)
+                for(int i = 0; i < MAX_ACCEPTION_SCOKETS;i++)
                 {
-                    AcceptEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
-                    AcceptLoop(AcceptEventArgs);
+                    AllAcceptEventArgs[i] = new SocketAsyncEventArgs();
+                    AllAcceptEventArgs[i].Completed += new EventHandler<SocketAsyncEventArgs>(AcceptEventArg_Completed);
+                    AcceptLoop(AllAcceptEventArgs[i]);
                 }
+                return true;
             }
             catch(Exception ex)
             {
                 Close(ex);
             }
+            return false;
         }
 
         internal void AcceptLoop(SocketAsyncEventArgs AcceptEventArgs)
@@ -112,7 +115,7 @@ namespace MessageFramework
             }
             else
             {
-                channel.Accept(ClientSocket);
+                channel.Start(ClientSocket);
             }
             AcceptLoop(AcceptEventArgs);
         }
@@ -126,10 +129,47 @@ namespace MessageFramework
 
         void Close(Exception ex)
         {
-            _IsListening = false;
             Console.WriteLine(ex.Message);
+            Close();
+        }
+
+        public void Close()
+        {
+            _IsListening = false;
             _ListenSocket.Close();
             _ListenSocket = null;
         }
+
+        public void RegisterMessageHandler(Type msgtype, EventHandler<MessageHeader>handler)
+        {
+            MessageHandlers[msgtype] = handler;
+        }
+
+        public void RemoveMessageHandler(Type msgtype)
+        {
+            if (MessageHandlers.ContainsKey(msgtype))
+            {
+                MessageHandlers.Remove(msgtype);
+            }
+        }
+
+        void OnClientMessage(object sender, MessageHeader msghdr)
+        {
+            Type msgtype = msghdr.GetType();
+            if (MessageHandlers.ContainsKey(msgtype))
+            {
+                EventHandler<MessageHeader> MessageHandler = MessageHandlers[msgtype];
+                if (MessageHandler != null)
+                {
+                    MessageHandler(sender, msghdr);
+                    return;
+                }
+            }
+            if (ClientMessageHandler != null)
+            {
+                ClientMessageHandler(sender, msghdr);
+            }
+        }
+
     }
 }

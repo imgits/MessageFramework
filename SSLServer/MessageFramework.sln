@@ -7,9 +7,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SSLServer", "SSLServer.cspr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SSLClient", "..\SSLClient\SSLClient.csproj", "{AD4FA9F3-3468-4698-B829-8AD3726A50E0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SslServerStream", "..\SslServerStream\SslServerStream.vcxproj", "{1F29BE29-3264-45AF-B29F-6CDEE16617F8}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "StreamSSL", "..\SslServerStream\SslServerStream.vcxproj", "{1F29BE29-3264-45AF-B29F-6CDEE16617F8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SslServerStreamTest", "..\SslServerStreamTest\SslServerStreamTest.csproj", "{2FD6F0AE-0637-4351-99D0-05ADA0E50602}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MessageFramework", "..\MessageFramework\MessageFramework.csproj", "{BE7818FC-5100-4DF3-B919-8E986A114E5C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MessagesDefine", "..\MessagesDefine\MessagesDefine.csproj", "{34CBB863-E2C5-42F1-88B5-F98537800382}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -67,6 +71,30 @@ Global
 		{2FD6F0AE-0637-4351-99D0-05ADA0E50602}.Release|x64.Build.0 = Release|Any CPU
 		{2FD6F0AE-0637-4351-99D0-05ADA0E50602}.Release|x86.ActiveCfg = Release|Any CPU
 		{2FD6F0AE-0637-4351-99D0-05ADA0E50602}.Release|x86.Build.0 = Release|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Debug|x64.Build.0 = Debug|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Debug|x86.Build.0 = Debug|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Release|x64.ActiveCfg = Release|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Release|x64.Build.0 = Release|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Release|x86.ActiveCfg = Release|Any CPU
+		{BE7818FC-5100-4DF3-B919-8E986A114E5C}.Release|x86.Build.0 = Release|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Debug|x64.Build.0 = Debug|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Debug|x86.Build.0 = Debug|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Release|Any CPU.Build.0 = Release|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Release|x64.ActiveCfg = Release|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Release|x64.Build.0 = Release|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Release|x86.ActiveCfg = Release|Any CPU
+		{34CBB863-E2C5-42F1-88B5-F98537800382}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

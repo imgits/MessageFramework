@@ -10,35 +10,49 @@ using ProtoBuf.Meta;
 
 namespace MessageFramework
 {
-    class ProtobufSerializer
+    public class ProtobufSerializer
     {
-        static Dictionary<int, Type> MsgTypeId2Name = new Dictionary<int, Type>();
-        static Dictionary<Type, int> MsgTypeName2Id = new Dictionary<Type, int>();
-        static Dictionary<string,Type> MsgName2Type = new Dictionary<string,Type>();
+        static Dictionary<int, Type> MsgTypeId2Type = new Dictionary<int, Type>();
+        //static Dictionary<Type, int> MsgTypeName2Id = new Dictionary<Type, int>();
+
         static ProtoBuf.Meta.RuntimeTypeModel MessageTypeModel = ProtoBuf.Meta.TypeModel.Create();
 
         static ProtobufSerializer()
         {
-            int msgid = 0;
-            Assembly[] Assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            int SubTypeFiledNumber = 1000;
-            AddTypeToMessageModel<MessageHeader>(MessageTypeModel);
-            foreach (Assembly asm in Assemblies)
+            try
             {
-                Type[] Types = asm.GetTypes();
-                foreach(var type in Types)
+                Assembly[] Assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                int SubTypeFiledNumber = 1000;
+                AddTypeToMessageModel<MessageHeader>(MessageTypeModel);
+                foreach (Assembly asm in Assemblies)
                 {
-                    if (type == typeof(MessageHeader)) continue;
-                    ProtoContractAttribute[] attrs = (ProtoContractAttribute[])type.GetCustomAttributes(typeof(ProtoContractAttribute));
-                    if (attrs.Length>0)
+                    Type[] Types = asm.GetTypes();
+                    foreach (var type in Types)
                     {
-                        AddTypeToMessageModel(MessageTypeModel,type);
-                        MessageTypeModel[typeof(MessageHeader)].AddSubType(SubTypeFiledNumber++, type);
-                        MsgTypeId2Name[msgid] = type;
-                        MsgTypeName2Id[type] = msgid++;
-                        MsgName2Type[type.FullName] = type;
+                        if (type == typeof(MessageHeader)) continue;
+                        ProtoContractAttribute[] attrs = (ProtoContractAttribute[])type.GetCustomAttributes(typeof(ProtoContractAttribute));
+                        if (attrs.Length > 0)
+                        {
+                            AddTypeToMessageModel(MessageTypeModel, type);
+                            if (type.BaseType == typeof(MessageHeader))
+                            {
+                                MessageTypeModel[typeof(MessageHeader)].AddSubType(SubTypeFiledNumber++, type);
+                                int typeid = type.AssemblyQualifiedName.GetHashCode();
+                                if (MsgTypeId2Type.ContainsKey(typeid))
+                                {
+                                    Type oldtype = MsgTypeId2Type[typeid];
+                                    throw new Exception($"Message type({oldtype.FullName}) has same HASH value as the message type({type.FullName}),please modify one of the names");
+                                }
+                                MsgTypeId2Type[typeid] = type;
+                            }
+
+                        }
                     }
                 }
+            }
+            catch(Exception ex)
+            {
+                throw ex;
             }
         }
 
@@ -76,19 +90,18 @@ namespace MessageFramework
         {
             try
             {
-                MessageHeader msghdr = message as MessageHeader;
-                msghdr.TypeName = typeof(T).FullName;
-
+                int typeid = typeof(T).AssemblyQualifiedName.GetHashCode();
+                string TypeName = typeof(T).FullName + "," + "MessagesDefine";
                 using (MemoryStream ms = new MemoryStream())
                 {
                     //消息总长度
                     ms.WriteByte(0);
                     ms.WriteByte(0);
-                    //消息类型名称长度(1-255)
-                    ms.WriteByte(0);
-                    //消息类型名称
-                    byte[] typename_bytes = Encoding.ASCII.GetBytes(msghdr.TypeName);
-                    ms.Write(typename_bytes, 0, typename_bytes.Length);
+                    //消息类型id
+                    ms.WriteByte((byte)(typeid & 0xff));
+                    ms.WriteByte((byte)((typeid>>8) & 0xff));
+                    ms.WriteByte((byte)((typeid >>16) & 0xff));
+                    ms.WriteByte((byte)((typeid >>24) & 0xff));
                     //序列化消息
                     MessageTypeModel.Serialize(ms, message);
                     byte[] msg = ms.ToArray();
@@ -96,7 +109,6 @@ namespace MessageFramework
 
                     msg[0] = (byte)(packet_size & 0xff);
                     msg[1] = (byte)((packet_size >> 8) & 0xff);
-                    msg[2] = (byte)typename_bytes.Length;
                     return msg;
                 }
             }
@@ -122,12 +134,18 @@ namespace MessageFramework
             {
                 //消息长度
                 int packet_size = BitConverter.ToUInt16(buffer, offset);
-                //消息类型名称长度(1-255)
-                int typename_bytes = buffer[2];
-                //消息类型名称
-                string TypeName = Encoding.ASCII.GetString(buffer, 3, typename_bytes);
-                Type MsgType = Type.GetType(TypeName);
-                int prefix_size = 2 + 1 + typename_bytes;
+                //消息类型id
+                int typeid = BitConverter.ToInt32(buffer, offset + 2);
+                Type MsgType = null;
+                if (MsgTypeId2Type.ContainsKey(typeid))
+                {
+                    MsgType = MsgTypeId2Type[typeid];
+                }
+                else
+                {
+                    throw new Exception("Undefined message type");
+                }
+                int prefix_size = 2 + 4;
                 
                 using (MemoryStream ms = new MemoryStream(buffer, offset+ prefix_size, count- prefix_size))
                 {
@@ -136,7 +154,7 @@ namespace MessageFramework
             }
             catch (Exception ex)
             {
-
+                throw ex;
             }
             return msg;
         }

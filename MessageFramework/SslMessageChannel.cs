@@ -1,39 +1,37 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using SecStream;
 
 namespace MessageFramework
 {
-    class SslMessageClient : TcpMessageChannel
+    public class SslMessageChannel : TcpMessageChannel
     {
-        StreamSSL _StreamSSL;
-        public SslMessageClient(int id, ChannelSettings Settings)
-            : base(id, Settings)
-        {
-            _ChannelSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _StreamSSL = new StreamSSL();
-            _StreamSSL.EncryptDataOutput = OnSslEncryptedData;
-            _StreamSSL.DecryptDataOutput = OnSslDecryptedData;
+        readonly X509Certificate2 _Certificate;
+        private StreamSSL _StreamSSL;
 
+        public SslMessageChannel(int id, ChannelSettings Settings, X509Certificate2 Certificate)
+            :base(id, Settings)
+        {
+            _Certificate = Certificate;
+            _StreamSSL = new StreamSSL();
+            _StreamSSL.EncryptOutput = OnSslEncryptedData;
+            _StreamSSL.DecryptDataOutput = OnSslDecryptedData;
         }
 
-        public bool Connect(string host, int port)
+        public override void Start(Socket ClientSocket)
         {
-            var result = _ChannelSocket.BeginConnect(host, port, null, null);
-            var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(_Settings.ConnectTimeout));
-            _ChannelSocket.EndConnect(result);
-            if (!success)
-            {
-                Close();
-                return false;
-            }
-            _StreamSSL.Initialize("localhost");
+            _ChannelSocket = ClientSocket;
+            ReceiveEventArgs.AcceptSocket = _ChannelSocket;
+            
+            _StreamSSL.Initialize(_Certificate);
+            
             StartReceive();
-            return success;
         }
 
         protected override void ProcessReceive(SocketAsyncEventArgs ReceiveEventArgs)
@@ -74,5 +72,6 @@ namespace MessageFramework
             ProcessReceivedData();
             return true;
         }
+
     }
 }

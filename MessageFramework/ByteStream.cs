@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MessageFramework
 {
-    class ByteStream
+    public class ByteStream
     {
         Queue<ByteBuffer> _StreamBuffers = new Queue<ByteBuffer>();
         readonly int _BufferSize = 4096;

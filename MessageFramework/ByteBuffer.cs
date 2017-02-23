@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace MessageFramework
 {
-    class ByteBuffer
+    public class ByteBuffer
     {
         private byte[] _Buffer;
         private Int32 _Offset;

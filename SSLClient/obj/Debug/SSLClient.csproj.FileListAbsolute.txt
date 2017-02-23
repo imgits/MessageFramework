@@ -1,5 +1,15 @@
+E:\MessageFramework\SSLClient\obj\Debug\SSLClient.csprojResolveAssemblyReference.cache
 E:\MessageFramework\SSLClient\bin\Debug\SSLClient.exe.config
 E:\MessageFramework\SSLClient\bin\Debug\SSLClient.exe
 E:\MessageFramework\SSLClient\bin\Debug\SSLClient.pdb
+E:\MessageFramework\SSLClient\bin\Debug\MessageFramework.dll
+E:\MessageFramework\SSLClient\bin\Debug\protobuf-net.dll
+E:\MessageFramework\SSLClient\bin\Debug\StreamSSL.dll
+E:\MessageFramework\SSLClient\bin\Debug\NLog.dll
+E:\MessageFramework\SSLClient\bin\Debug\MessageFramework.pdb
+E:\MessageFramework\SSLClient\bin\Debug\StreamSSL.pdb
+E:\MessageFramework\SSLClient\bin\Debug\NLog.xml
 E:\MessageFramework\SSLClient\obj\Debug\SSLClient.exe
 E:\MessageFramework\SSLClient\obj\Debug\SSLClient.pdb
+E:\MessageFramework\SSLClient\bin\Debug\MessagesDefine.dll
+E:\MessageFramework\SSLClient\bin\Debug\MessagesDefine.pdb

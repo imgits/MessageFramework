@@ -12,8 +12,8 @@ using SecStream;
 
 namespace MessageFramework
 {
-    
-    class TcpMessageChannel
+
+    public class TcpMessageChannel
     {
         protected SocketAsyncEventArgs ReceiveEventArgs { get; set; }
         protected SocketAsyncEventArgs SendEventArgs { get; set; }
@@ -24,10 +24,9 @@ namespace MessageFramework
         public    int ChannelId { get; set;}
 
         protected Socket    _ChannelSocket { get; set; }
-        protected bool      _IsServerChannel;
         protected int       _SendLocked = 0;
 
-        protected readonly ChannelSettings _Settings;
+        readonly ChannelSettings _Settings;
 
         protected readonly ByteStream  _SendStream;
         protected readonly ByteStream  _RecvStream;
@@ -35,7 +34,7 @@ namespace MessageFramework
         protected readonly byte[]      _RecvBuffer;
 
         Dictionary<long, object> SendRecvMessages = new Dictionary<long, object>();
-
+        
         public TcpMessageChannel(int id, ChannelSettings Settings)
         {
             ChannelId = id;
@@ -51,15 +50,13 @@ namespace MessageFramework
             _RecvStream = new ByteStream();
             _SendBuffer = new byte[Settings.SendBufferSize];
             _RecvBuffer = new byte[Settings.RecvBufferSize];
-            _IsServerChannel = true;
             _SendLocked = 0;
 
             OnMessageReceived = null;
         }
 
-        public virtual void Accept(Socket ClientSocket)
+        public virtual void Start(Socket ClientSocket)
         {
-            _IsServerChannel = true;
             _ChannelSocket = ClientSocket;
             StartReceive();
         }
@@ -99,15 +96,15 @@ namespace MessageFramework
 
         protected void ProcessReceivedData()
         {
-            while(_RecvStream.DataAvailable)
-            {
-                int bytes = _RecvStream.Read(_RecvBuffer, 0, _RecvBuffer.Length);
-                if (bytes <= 0) break;
-                string msg = Encoding.ASCII.GetString(_RecvBuffer, 0, bytes);
-                Console.Write(msg);
-                Send(_RecvBuffer, 0, bytes);
-            }
-            return;
+            //while(_RecvStream.DataAvailable)
+            //{
+            //    int bytes = _RecvStream.Read(_RecvBuffer, 0, _RecvBuffer.Length);
+            //    if (bytes <= 0) break;
+            //    string msg = Encoding.ASCII.GetString(_RecvBuffer, 0, bytes);
+            //    Console.Write(msg);
+            //    Send(_RecvBuffer, 0, bytes);
+            //}
+            //return;
 
             while (_RecvStream.Length >= 2)
             {
@@ -162,6 +159,11 @@ namespace MessageFramework
             return Send(buffer, 0, buffer.Length);
         }
 
+        public MessageHeader SendRecvMessage<T>(T msg, int timeout) where T : class 
+        {
+            return SendRecvMessage<T,MessageHeader>(msg,  timeout);
+        }
+
         public T2 SendRecvMessage<T1, T2>(T1 msg, int timeout) where T1 : class where T2 : class
         {
             T2 ReceivedMsg = null;
@@ -169,7 +171,6 @@ namespace MessageFramework
             try
             {
                 byte[] buffer = ProtobufSerializer.Serialize<T1>(msg);
-                SendRecvMessageArgs args = new SendRecvMessageArgs();
                 ManualResetEvent WaitEvent = new ManualResetEvent(false);
                 SendRecvMessages[msgid] = WaitEvent;
                 if (Send(buffer, 0, buffer.Length))

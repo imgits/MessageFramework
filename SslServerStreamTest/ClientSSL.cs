@@ -18,7 +18,7 @@ namespace SslServerStreamTest
         {
             _ClientSocket = new Socket(AddressFamily.InterNetwork,SocketType.Stream,ProtocolType.Tcp);
             _StreamSSL = new StreamSSL();
-            _StreamSSL.EncryptDataOutput = OnSslEncryptedData;
+            _StreamSSL.EncryptOutput = OnSslEncryptedData;
             _StreamSSL.DecryptDataOutput = OnSslDecryptedData;
         }
 

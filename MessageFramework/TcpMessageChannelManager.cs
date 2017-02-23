@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using ProtoBuf;
 using System.Security.Cryptography.X509Certificates;
 
+
 namespace MessageFramework
 {
     class TcpMessageChannelManager
@@ -16,7 +17,7 @@ namespace MessageFramework
         readonly List<TcpMessageChannel> _UsedChannelList;
         readonly ChannelSettings _ChannelSettings;
         readonly Object _syncRoot = new object();
-        
+
         public TcpMessageChannelManager(int MaxChannels, ChannelSettings ChannelSettings)
         {
             _ChannelSettings = ChannelSettings;
