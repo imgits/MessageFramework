@@ -6,9 +6,10 @@ using System.Net.Security;
 using System.Text;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Configuration;
 
 using MessageFramework;
-using SecStream;
+
 
 namespace SSLClient
 {
@@ -158,12 +159,48 @@ namespace SSLClient
 
     public class Program
     {
-        static void TestTcpMessageClient()
+        static ClientSettings LoadAppConfig()
         {
             ClientSettings _ClientSettings = new ClientSettings();
-            _ClientSettings.Host = "127.0.0.1";
+            //Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            foreach (string key in ConfigurationManager.AppSettings)
+            {
+                string value = ConfigurationManager.AppSettings[key];
+                switch(key)
+                {
+                    case "Host":    _ClientSettings.Host = value;      break;
+                    case "Port":    _ClientSettings.Port = int.Parse(value); break;
+                    case "UseSSL": _ClientSettings.UseSSL = bool.Parse(value); break;
+                    case "SendBufferSize": _ClientSettings.SendBufferSize = int.Parse(value); break;
+                    case "RecvBufferSize": _ClientSettings.RecvBufferSize = int.Parse(value); break;
+                    case "ConnectTimeout": _ClientSettings.ConnectTimeout = int.Parse(value); break;
+                    case "RecvTimeout": _ClientSettings.RecvTimeout = int.Parse(value); break;
+                    case "SendTimeout": _ClientSettings.SendTimeout = int.Parse(value); break;
+                    case "HeartBeatPeriod": _ClientSettings.SendTimeout = int.Parse(value); break;
+                }
+                Console.WriteLine("Key: {0}, Value: {1}", key, value);
+            }
+            return _ClientSettings;
+        }
+
+        static void TestTcpMessageClient()
+        {
+            ClientSettings _ClientSettings = LoadAppConfig();
+            //ConfigurationManager config = new ConfigurationManager()
+            if (ConfigurationManager.AppSettings["TargetHost"] != null)
+            {
+                _ClientSettings.Host= ConfigurationManager.AppSettings["TargetHost"];
+            }
             _ClientSettings.Port = 1234;
+            _ClientSettings.UseSSL = false;
             _ClientSettings.ConnectTimeout = 10 * 1000;
+            TcpMessageClientTest client = new TcpMessageClientTest(_ClientSettings);
+            client.Start();
+        }
+
+        static void TestSslMessageClient()
+        {
+            ClientSettings _ClientSettings = LoadAppConfig();
             TcpMessageClientTest client = new TcpMessageClientTest(_ClientSettings);
             client.Start();
         }
@@ -172,7 +209,8 @@ namespace SSLClient
         {
             try
             {
-                TestTcpMessageClient();
+                //TestTcpMessageClient();
+                TestSslMessageClient();
             }
             catch (Exception ex)
             {

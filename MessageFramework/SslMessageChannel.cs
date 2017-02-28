@@ -21,7 +21,7 @@ namespace MessageFramework
             _Certificate = Certificate;
             _StreamSSL = new StreamSSL();
             _StreamSSL.EncryptOutput = OnSslEncryptedData;
-            _StreamSSL.DecryptDataOutput = OnSslDecryptedData;
+            _StreamSSL.DecryptOutput = OnSslDecryptedData;
         }
 
         public override void Start(Socket ClientSocket)
@@ -53,12 +53,6 @@ namespace MessageFramework
         protected override bool Send(Byte[] buffer, Int32 offset, Int32 count)
         {
             return _StreamSSL.Encrypt(buffer, offset, count);
-        }
-
-        public override bool SendMessage<T>(T msg)
-        {
-            byte[] buffer = ProtobufSerializer.Serialize<T>(msg);
-            return _StreamSSL.Encrypt(buffer, 0, buffer.Length);
         }
 
         bool OnSslEncryptedData(byte[] buffer, int offset, int count)

@@ -10,11 +10,11 @@ namespace MessageFramework
     [ProtoContract]
     public class MessageHeader
     {
-        public long     id { get; set; }
-        public long     ackid { get; set; }
-        public string   from { get; set; }
-        public string   to { get; set; }
-        public long     result { get; set; }
+        public long     id      { get; set; }
+        public long     ackid   { get; set; }
+        public string   from    { get; set; }
+        public string   to      { get; set; }
+        public long     flags   { get; set; }
 
         public MessageHeader()
             : this(0, null, null, 0)
@@ -22,7 +22,7 @@ namespace MessageFramework
         }
 
         public MessageHeader(MessageHeader msghdr)
-            : this(msghdr.ackid, msghdr.from, msghdr.to, msghdr.result)
+            : this(msghdr.ackid, msghdr.from, msghdr.to, msghdr.flags)
         {
         }
 
@@ -36,14 +36,14 @@ namespace MessageFramework
         {
         }
 
-        public MessageHeader(long AckId, string From, string To, long Result)
+        public MessageHeader(long AckId, string From, string To, long Flags)
         {
-            InitHeader(AckId, From, To, Result);
+            InitHeader(AckId, From, To, Flags);
         }
 
         public void InitHeader(MessageHeader msghdr)
         {
-            InitHeader(msghdr.ackid, msghdr.from, msghdr.to, msghdr.result);
+            InitHeader(msghdr.ackid, msghdr.from, msghdr.to, msghdr.flags);
         }
 
         public void InitHeader(string To)
@@ -56,14 +56,51 @@ namespace MessageFramework
             InitHeader(0, From, To, 0);
         }
 
-        public void InitHeader(long AckId, string From, string To, long Result)
+        public void InitHeader(long AckId, string From, string To, long Flags)
         {
             id = DateTime.Now.ToBinary();
             ackid = AckId;
             from = From;
             to = To;
-            result = Result;
+            flags = Flags;
         }
 
+    }
+
+    [ProtoContract]
+    public class MsgText : MessageHeader
+    {
+        public string text { get; set; }
+        public MsgText()
+        {
+            text = null;
+        }
+
+        public MsgText(string text)
+        {
+            this.text = text;
+        }
+
+    }
+
+    [ProtoContract]
+    public class MsgError : MessageHeader
+    {
+        public string error { get; set; }
+    }
+
+    [ProtoContract]
+    class MsgHeartbeat : MessageHeader
+    {
+
+    }
+    [ProtoContract]
+    class MsgChannelGuid : MessageHeader
+    {
+        public Guid ChannelGuid { get; set; }
+        public MsgChannelGuid()
+        {
+            ChannelGuid = Guid.NewGuid();
+        }
     }
 }

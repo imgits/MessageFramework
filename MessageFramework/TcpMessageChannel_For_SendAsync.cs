@@ -11,167 +11,90 @@ using System.Threading.Tasks;
 using SecStream;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Security.Authentication;
 
 namespace MessageFramework
 {
-    public delegate void ChannelClosedHandler(object sender,Exception ex);
     public class TcpMessageChannel
     {
-        private SocketAsyncEventArgs ReceiveEventArgs { get; set; }
+        protected SocketAsyncEventArgs ReceiveEventArgs { get; set; }
+        protected SocketAsyncEventArgs SendEventArgs { get; set; }
 
         public event EventHandler<MessageHeader> OnMessageReceived;
-        public event ChannelClosedHandler OnChannelClosed;
 
         public    DateTime  ActiveDateTime;
         public    int       ChannelId       { get; set;}
         public    Guid      ChannelGuid     { get; set; }
+        public    string    ChannelName     { get; set; }
+        public    bool      IsAuthenticated { get; set; }
+        protected Socket    _ChannelSocket  { get; set; }
+        protected int       _SendLocked = 0;
 
-        public    string    ChannelUserName { get; set; }
-        public    ulong     ChannelUserId   { get; set; }
+        readonly ChannelSettings _Settings;
 
-        private Socket    _ChannelSocket  { get; set; }
-
-        private object    _SendLocked = new object();
-
-        private bool _ChannelIsClosed;
-        ChannelSettings   _Settings;
-
-        ByteStream  _RecvStream;
-        byte[]      _RecvBuffer;
+        protected readonly ByteStream  _SendStream;
+        protected readonly ByteStream  _RecvStream;
+        protected readonly byte[]      _SendBuffer;
+        protected readonly byte[]      _RecvBuffer;
 
         Dictionary<long, object> SendRecvMessages = new Dictionary<long, object>();
+        
 
-        //SSL相关参数
-        private bool             _UseSSL;
-        private bool             _AsSslClient;
-        private StreamSSL        _StreamSSL;
-        private string           _TargetHost;
-        private SslProtocols     _SslProtocol;
-        private X509Certificate2 _Certificate;
-
-        //初始化客户端通道
-        public TcpMessageChannel(ClientSettings Settings)
-        {
-            InitTcpChannel(-1, Settings);
-            if (Settings.UseSSL) InitSslChannnel(true, null, Settings.Host, Settings.SslProtocol);
-        }
-
-        //初始化服务端通道
-        public TcpMessageChannel(int id, ServerSettings Settings)
-        {
-            InitTcpChannel(id, Settings);
-            if (Settings.UseSSL) InitSslChannnel(false, Settings.Certificate, null);
-        }
-
-        //该构造函数只能内部调用
-        private void InitTcpChannel(int id, ChannelSettings Settings)
+        public TcpMessageChannel(int id, ChannelSettings Settings)
         {
             ChannelId = id;
             _Settings = Settings;
             _ChannelSocket = null;
-
-            _ChannelIsClosed = true;
             ReceiveEventArgs = new SocketAsyncEventArgs();
-            ReceiveEventArgs.Completed += (object sender, SocketAsyncEventArgs ReceiveEventArgs) =>
-            {
-                ProcessReceive(ReceiveEventArgs);
-            };//new EventHandler<SocketAsyncEventArgs>(OnReceiveEventCompleted);
+            SendEventArgs = new SocketAsyncEventArgs();
+            ReceiveEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(ReceiveEvent_Completed);
+            SendEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(SendEvent_Completed);
             ActiveDateTime = DateTime.Now;
 
+            _SendStream = new ByteStream();
             _RecvStream = new ByteStream();
+            _SendBuffer = new byte[Settings.SendBufferSize];
             _RecvBuffer = new byte[Settings.RecvBufferSize];
             _SendLocked = 0;
 
             OnMessageReceived = null;
-
-            //SSL相关参数初始化
-            _UseSSL = false;
-            _AsSslClient = false;
-            _TargetHost = null;
-            _SslProtocol = SslProtocols.None;
-            _Certificate = null;
-            _StreamSSL = null;
         }
 
-        //初始化SSL通道
-        private void InitSslChannnel(bool AsSslClient, X509Certificate2 Certificate, string TargetHost, SslProtocols SslProtocol= SslProtocols.None)
+        public virtual void Start(Socket ClientSocket)
         {
-            _UseSSL = true;
-            _AsSslClient = AsSslClient;
-            _TargetHost = TargetHost;
-            _SslProtocol = SslProtocol;
-            _Certificate = Certificate;
-
-            _StreamSSL = new StreamSSL()
-            {
-                DecryptOutput = (Byte[] buffer, Int32 offset, Int32 count) =>
-                {
-                    _RecvStream.Write(buffer, offset, count);
-                    ProcessReceivedData();
-                    return true;
-                }
-            };
-        }
-
-        public void Start(Socket ClientSocket)
-        {
-            if (ClientSocket == null || !ClientSocket.Connected)
-            {
-                return;
-            }
-            _ChannelIsClosed = false;
             _ChannelSocket = ClientSocket;
             SetKeepAlive(_Settings.HeartBeatPeriod);
-            if (_UseSSL)
-            {
-                if (_AsSslClient) _StreamSSL.AuthenticateAsClient(_ChannelSocket,_SslProtocol);
-                else _StreamSSL.AuthenticateAsServer(_ChannelSocket, _Certificate);
-            }
             StartReceive();
         }
 
         protected void StartReceive()
         {
-            if (!_ChannelIsClosed)
+            ReceiveEventArgs.SetBuffer(_RecvBuffer, 0, _RecvBuffer.Length);
+            if (!_ChannelSocket.ReceiveAsync(ReceiveEventArgs))
             {
-                ReceiveEventArgs.SetBuffer(_RecvBuffer, 0, _RecvBuffer.Length);
-                if (!_ChannelSocket.ReceiveAsync(ReceiveEventArgs))
-                {
-                    Log.Debug("ChannelSocket.ReceiveAsync 事件已同步完成");
-                    ProcessReceive(ReceiveEventArgs);
-                }
+                Log.Debug("ChannelSocket.ReceiveAsync 事件已同步完成");
+                ProcessReceive(ReceiveEventArgs);
             }
         }
 
-        protected void ProcessReceive(SocketAsyncEventArgs ReceiveEventArgs)
+        void ReceiveEvent_Completed(object sender, SocketAsyncEventArgs ReceiveEventArgs)
         {
-            if (_ChannelIsClosed) return;
-            try
+            //Log.Debug("ChannelSocket.ReceiveAsync 异步事件完成");
+            ProcessReceive(ReceiveEventArgs);
+        }
+
+        protected virtual void ProcessReceive(SocketAsyncEventArgs ReceiveEventArgs)
+        {
+            ActiveDateTime = DateTime.Now;
+            if (ReceiveEventArgs.SocketError != SocketError.Success ||
+                ReceiveEventArgs.BytesTransferred == 0)
             {
-                ActiveDateTime = DateTime.Now;
-                if (ReceiveEventArgs.SocketError != SocketError.Success ||
-                    ReceiveEventArgs.BytesTransferred == 0)
-                {
-                    Log.Error(ReceiveEventArgs.SocketError.ToString());
-                    Close();
-                    return;
-                }
-                Log.Debug("Receive " + ReceiveEventArgs.BytesTransferred + " bytes");
-                if (_UseSSL)
-                {
-                    _StreamSSL.Decrypt(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
-                }
-                else
-                {
-                    _RecvStream.Write(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
-                    ProcessReceivedData();
-                }
+                Log.Error(ReceiveEventArgs.SocketError.ToString());
+                Close();
+                return;
             }
-            catch(Exception ex)
-            {
-                Close(ex);
-            }
+            Log.Debug("Receive " + ReceiveEventArgs.BytesTransferred + " bytes");
+            _RecvStream.Write(_RecvBuffer, 0, ReceiveEventArgs.BytesTransferred);
+            ProcessReceivedData();
             StartReceive();
         }
 
@@ -197,7 +120,10 @@ namespace MessageFramework
         {
             MessageHeader msghdr = ProtobufSerializer.Deserialize(buffer, offset, count);
             if (msghdr == null) return ;
-
+            if (_Settings.AuthenticationRequired && !IsAuthenticated)
+            {
+                //if (msghdr is MessageHeader)
+            }
             long ackid = msghdr.ackid;
             if (SendRecvMessages.ContainsKey(ackid))
             {
@@ -205,55 +131,30 @@ namespace MessageFramework
                 SendRecvMessages[ackid] = msghdr;
                 WaitEvent.Set();
             }
-            else
+            else if (OnMessageReceived!=null)
             {
-                OnMessageReceived?.Invoke(this, msghdr);
+                OnMessageReceived(this, msghdr);
             }
         }
 
-        bool SendSSL(Byte[] buffer, Int32 offset, Int32 count)
+        protected virtual bool Send(Byte[] buffer, Int32 offset, Int32 count)
         {
-            try
-            {
-                return _StreamSSL.Encrypt(buffer, offset, count);
-            }
-            catch (Exception ex)
-            {
-                Close(ex);
-            }
-            return false;
-        }
-
-        bool Send(Byte[] buffer, Int32 offset, Int32 count)
-        {
-            Log.Debug($"Send {count} bytes");
-            if (_ChannelIsClosed) return false;
-            lock (_SendLocked)
-            {
-                while (count > 0)
-                {
-                    int bytes = _ChannelSocket.Send(buffer, offset, count, SocketFlags.None);
-                    if (bytes <= 0) return false;
-                    offset += bytes;
-                    count -= bytes;
-                }
-            }
+            _SendStream.Write(buffer, offset, count);
+            Send();
             return true;
         }
 
-        public bool SendMessage<T>(T msg) where T: class
+        bool SendByte(Byte value)
         {
-            try
-            {
-                byte[] buffer = ProtobufSerializer.Serialize<T>(msg);
-                if (_UseSSL) return SendSSL(buffer, 0, buffer.Length);
-                return Send(buffer, 0, buffer.Length);
-            }
-            catch (Exception ex)
-            {
-                Close(ex);
-            }
-            return false;
+            _SendStream.WriteByte(value);
+            Send();
+            return true;
+        }
+
+        public virtual bool SendMessage<T>(T msg) where T: class
+        {
+            byte[] buffer = ProtobufSerializer.Serialize<T>(msg);
+            return Send(buffer, 0, buffer.Length);
         }
 
         /// <summary>
@@ -278,18 +179,15 @@ namespace MessageFramework
         /// <returns>Response message with type of T2</returns>
         public T2 SendRecvMessage<T1, T2>(T1 msg, int timeout=0) where T1 : class where T2 : class
         {
-            if (timeout <= 0) timeout = _Settings.SendTimeout + _Settings.RecvTimeout;
+            if (timeout <= 0) timeout = _Settings.SendTimeout + _Settings.ReceiveTimeout;
             T2 ReceivedMsg = null;
             long msgid = (msg as MessageHeader).id;
             try
             {
                 byte[] buffer = ProtobufSerializer.Serialize<T1>(msg);
                 ManualResetEvent WaitEvent = new ManualResetEvent(false);
-                SendRecvMessages[msgid] = WaitEvent;//注册接收等待事件
-                bool SendOK = false;
-                if (_UseSSL) SendOK = SendSSL(buffer, 0, buffer.Length);
-                else SendOK = Send(buffer, 0, buffer.Length);
-                if (SendOK)
+                SendRecvMessages[msgid] = WaitEvent;
+                if (Send(buffer, 0, buffer.Length))
                 {
                     if (WaitEvent.WaitOne(timeout))
                     {
@@ -299,10 +197,43 @@ namespace MessageFramework
             }
             catch (Exception ex)
             {
-                Close(ex);
             }
             if (SendRecvMessages.ContainsKey(msgid)) SendRecvMessages.Remove(msgid);
             return ReceivedMsg;
+        }
+
+        protected void SendEvent_Completed(object sender, SocketAsyncEventArgs arg)
+        {
+            _SendStream.Skip(SendEventArgs.BytesTransferred);
+            Interlocked.Exchange(ref _SendLocked, 0);
+            Send();
+        }
+
+        void Send()
+        {
+            bool SendAsync = false;
+            if (Interlocked.CompareExchange(ref _SendLocked, 1, 0) != 1)
+            {
+                while (_SendStream.DataAvailable)
+                {
+                    int bytes = _SendStream.Peek(_SendBuffer, 0, _SendBuffer.Length);
+                    if (bytes <= 0) break;
+                    SendEventArgs.SetBuffer(_SendBuffer, 0, bytes);
+                    if (!_ChannelSocket.SendAsync(SendEventArgs))
+                    {//Send同步完成
+                        _SendStream.Skip(SendEventArgs.BytesTransferred);
+                    }
+                    else
+                    { 
+                        SendAsync = true;
+                        break;
+                    }
+                }
+            }
+            if (!SendAsync)
+            {
+                Interlocked.Exchange(ref _SendLocked, 0);
+            }
         }
 
         /// <summary>
@@ -348,29 +279,29 @@ namespace MessageFramework
                 _ChannelSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, inOptionValues);
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Close(ex);    
+                
             }
             return false;
         }
 
-        public void Close(Exception ex=null)
+        public void Disconnect()
         {
-            Log.Debug("Channel closed");
-            _ChannelIsClosed = true;
-            try
+            if (_ChannelSocket != null)
             {
-                if (_ChannelSocket != null && _ChannelSocket.Connected)
-                {
-                    _ChannelSocket.Shutdown(SocketShutdown.Both);
-                    _ChannelSocket.Close();
-                    _ChannelSocket.Dispose();
-                }
+                _ChannelSocket.Disconnect(true);
             }
-            catch { }
+        }
+
+        public void Close()
+        {
+            if (_ChannelSocket != null)
+            {
+                _ChannelSocket.Shutdown(SocketShutdown.Both);
+                _ChannelSocket.Close();
+            }
             _ChannelSocket = null;
-            OnChannelClosed?.Invoke(this, ex);
         }
     }
 }

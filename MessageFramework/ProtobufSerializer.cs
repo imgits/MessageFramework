@@ -24,6 +24,7 @@ namespace MessageFramework
                 Assembly[] Assemblies = AppDomain.CurrentDomain.GetAssemblies();
                 int SubTypeFiledNumber = 1000;
                 AddTypeToMessageModel<MessageHeader>(MessageTypeModel);
+                //MessageTypeModel[typeof(MessageHeader)].AddSubType(SubTypeFiledNumber++, typeof(MessageHeader));
                 foreach (Assembly asm in Assemblies)
                 {
                     Type[] Types = asm.GetTypes();
@@ -52,7 +53,7 @@ namespace MessageFramework
             }
             catch(Exception ex)
             {
-                throw ex;
+                Log.Error($"ProtobufSerializer() {ex.Message}");
             }
         }
 
@@ -114,7 +115,7 @@ namespace MessageFramework
             }
             catch (Exception ex)
             {
-
+                Log.Error($"ProtobufSerializer::Serialize() {ex.Message}");
             }
             return null;
         }
@@ -154,7 +155,7 @@ namespace MessageFramework
             }
             catch (Exception ex)
             {
-                throw ex;
+                Log.Error($"ProtobufSerializer::Deserialize() {ex.Message}");
             }
             return msg;
         }

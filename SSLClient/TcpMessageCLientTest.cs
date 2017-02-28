@@ -16,6 +16,8 @@ namespace SSLClient
             _ClientSettings = ClientSettings;
             _TcpMessageClient = new TcpMessageClient(ClientSettings);
             _TcpMessageClient.ServerMessageHandler += OnServerMessage;
+            _TcpMessageClient.RegisterMessageHandler(typeof(MsgText), OnTextMessage);
+            _TcpMessageClient.RegisterMessageHandler(typeof(MsgError), OnErrorMessage);
         }
 
         public void Start()
@@ -36,8 +38,12 @@ namespace SSLClient
             login.InitHeader("ahai", "gca");
             login.username = "admin";
             login.password = "guangs10029";
-            MessageHeader result = _TcpMessageClient.SendRecvMessage<MsgLogin>(login, 1000);
-            //if (result.result ==0)
+            MessageHeader result = _TcpMessageClient.SendRecvMessage(login, 1000);
+            if (result !=null)
+            {
+                MsgText msgtext = (MsgText)result;
+                Console.WriteLine(msgtext.text);
+            }
             MsgUser user = new MsgUser();
             user.InitHeader("ahai", "gca");
             user.username = "ahai";
@@ -55,6 +61,20 @@ namespace SSLClient
                 text.text = msg;
                 if (!_TcpMessageClient.SendMessage<MsgText>(text)) break;
             } while (true);
+        }
+
+        void OnErrorMessage(object sender, MessageHeader msghdr)
+        {
+            MsgError error = (MsgError)msghdr;
+            //Log.Debug($"Recv text message from server:{text.text}");
+            Console.WriteLine($"{error.error}");
+        }
+
+        void OnTextMessage(object sender, MessageHeader msghdr)
+        {
+            MsgText text = (MsgText)msghdr;
+            //Log.Debug($"Recv text message from server:{text.text}");
+            Console.WriteLine($"{text.text}");
         }
 
         void OnServerMessage(object sender,MessageHeader msghdr)

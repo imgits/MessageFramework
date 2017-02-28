@@ -18,7 +18,8 @@ private:
 	CtxtHandle     m_CtxtHandle;
 	CredHandle	   m_CredHandle;
 	SecPkgContext_StreamSizes m_StreamSizes;
-	WCHAR*         m_ServerName;
+	WCHAR          m_ServerName[64];
+	HANDLE		   m_AuthenticateEvent;
 	SOCKET		   m_socket;
 public:
 	bool			  IsAuthenticated;
@@ -30,10 +31,11 @@ public:
 	{
 		m_socket = NULL;
 		IsAuthenticated = false;
+		m_AuthenticateEvent = NULL;
 		SecInvalidateHandle(&m_CtxtHandle);
 		SecInvalidateHandle(&m_CredHandle);
 		memset(&m_StreamSizes, 0, sizeof(m_StreamSizes));
-		m_ServerName=L"TargetHost";
+		wcscpy(m_ServerName, L"localhost");
 	}
 
 	~_StreamSSL()
@@ -41,10 +43,12 @@ public:
 		Close();
 	}
 
-private:
+public:
 	bool CreateCredentials(PCCERT_CONTEXT pCertContext, DWORD Protocol, bool AsClient)
 	{
+		Close();
 		printf("StreamSSL::CreateCredentials\n");
+		m_AuthenticateEvent = CreateEvent(NULL, true, false, NULL);
 		// Build Schannel credential structure.
 		SCHANNEL_CRED   SchannelCred = { 0 };
 		SchannelCred.dwVersion = SCHANNEL_CRED_VERSION;
@@ -81,13 +85,31 @@ private:
 		return true;
 	}
 
-public:
-	bool AuthenticateAsClient(SOCKET socket,DWORD Protocol)
+	bool InitAsServer(PCCERT_CONTEXT pCertContext = NULL)
 	{
-		Close();
-		m_socket = socket;
+		printf("StreamSSL::InitAsServer\n");
+		DWORD Protocol = SP_PROT_SERVERS | SP_PROT_TLS1_1_SERVER | SP_PROT_TLS1_2_SERVER;
+		return CreateCredentials(pCertContext, Protocol, false);
+	}
 
+	bool InitAsClient(WCHAR* ServerName, DWORD Protocol, PCCERT_CONTEXT pCertContext = NULL)
+	{
+		printf("StreamSSL::InitAsClient\n");
+		if (ServerName == NULL || wcslen(ServerName) >= sizeof(m_ServerName) / 2)
+		{
+			return false;
+		}
+		wcscpy(m_ServerName,ServerName);
+		if (Protocol == 0) Protocol = SP_PROT_CLIENTS | SP_PROT_TLS1_1_CLIENT | SP_PROT_TLS1_2_CLIENT;
+		if (!CreateCredentials(pCertContext, Protocol, true)) return false;
+		return AuthenticateAsClient(NULL, 0);
+	}
+
+	bool AuthenticateAsClient(SOCKET socket, DWORD Protocol)
+	{
 		if (!CreateCredentials(NULL, Protocol, true)) return false;
+
+		printf("StreamSSL::AuthenticateAsClient\n");
 
 		DWORD dwSSPIFlags =
 			ASC_REQ_SEQUENCE_DETECT |
@@ -116,9 +138,9 @@ public:
 
 		do
 		{
-			if (SecIsValidHandle(&m_CtxtHandle))
+			if (InputBuffer->cbBuffer!=NULL)
 			{
-				TokenSize = ::recv(m_socket, TokenData, sizeof(TokenData), 0);
+				TokenSize = ::recv(socket, TokenData, sizeof(TokenData), 0);
 				if (TokenSize <= 0) return false;
 				InputBuffer[0] = { (unsigned long)TokenSize,SECBUFFER_TOKEN,TokenData };
 			}
@@ -140,15 +162,16 @@ public:
 			{
 			case SEC_E_OK:
 				IsAuthenticated = true;
+				SetEvent(m_AuthenticateEvent);
 				::QueryContextAttributes(
 					&m_CtxtHandle,
 					SECPKG_ATTR_STREAM_SIZES,
 					&m_StreamSizes);
-				printf("StreamSSL::AuthenticateAsClient OK \n");
+				printf("StreamSSL::Client.IsAuthenticated = true\n");
 			case SEC_I_CONTINUE_NEEDED:
 				if (OutputBuffer.cbBuffer > 0 && OutputBuffer.pvBuffer != NULL)
 				{
-					int bytes = ::send(m_socket, (char*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer, 0);
+					int bytes = ::send(socket, (char*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer, 0);
 					::FreeContextBuffer(OutputBuffer.pvBuffer);
 					if (bytes != OutputBuffer.cbBuffer) return false;
 				}
@@ -158,17 +181,17 @@ public:
 				return false;;
 			}
 		}while (status != SEC_E_OK);
+		printf("StreamSSL::AuthenticateAsClient OK \n");
 		return true;
 	}
 
-	bool AuthenticateAsServer(SOCKET socket,PCCERT_CONTEXT pCertContext)
+	bool AuthenticateAsServer(SOCKET socket, PCCERT_CONTEXT pCertContext)
 	{
-		Close();
-		m_socket = socket;
-
 		DWORD Protocol = SP_PROT_SERVERS | SP_PROT_TLS1_1_SERVER | SP_PROT_TLS1_2_SERVER;
 		if (!CreateCredentials(pCertContext, Protocol, false)) return false;
 		
+		printf("StreamSSL::AuthenticateAsServer\n");
+
 		DWORD dwSSPIFlags =
 			ASC_REQ_SEQUENCE_DETECT |
 			ASC_REQ_REPLAY_DETECT |
@@ -192,7 +215,7 @@ public:
 		SecBufferDesc OutputBufferDesc = { SECBUFFER_VERSION, 1,&OutputBuffer };
 		do
 		{
-			int TokenSize = ::recv(m_socket, TokenData, sizeof(TokenData), 0);
+			int TokenSize = ::recv(socket, TokenData, sizeof(TokenData), 0);
 			if (TokenSize <= 0) return false;
 			InputBuffer[0] = { (unsigned long)TokenSize, SECBUFFER_TOKEN, TokenData };
 			status = ::AcceptSecurityContext(
@@ -209,15 +232,16 @@ public:
 			{
 			case SEC_E_OK:
 				IsAuthenticated = true;
+				SetEvent(m_AuthenticateEvent);
 				::QueryContextAttributes(
 					&m_CtxtHandle,
 					SECPKG_ATTR_STREAM_SIZES,
 					&m_StreamSizes);
-				printf("StreamSSL::AuthenticateAsServer OK\n");
+				printf("StreamSSL::Server.IsAuthenticated = true\n");
 			case SEC_I_CONTINUE_NEEDED:
 				if (OutputBuffer.cbBuffer > 0 && OutputBuffer.pvBuffer != NULL)
 				{
-					int bytes = ::send(m_socket,(char*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer,0);
+					int bytes = ::send(socket,(char*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer,0);
 					::FreeContextBuffer(OutputBuffer.pvBuffer);
 					if (bytes <= 0) return false;
 				}
@@ -227,18 +251,158 @@ public:
 				return false;
 			}
 		} while (status != SEC_E_OK);
+		printf("StreamSSL::AuthenticateAsServer OK\n");
 		return true;
 	}
 
+
+	bool AuthenticateAsClient(BYTE* TokenData, int TokenSize)
+	{
+		printf("StreamSSL::AuthenticateAsClient\n");
+		if (TokenOutput == NULL) return false;
+		if (!SecIsValidHandle(&m_CredHandle)) return false;
+
+		DWORD dwSSPIFlags =
+			ASC_REQ_SEQUENCE_DETECT |
+			ASC_REQ_REPLAY_DETECT |
+			ASC_REQ_CONFIDENTIALITY |
+			ASC_REQ_EXTENDED_ERROR |
+			ASC_REQ_ALLOCATE_MEMORY |
+			ASC_REQ_STREAM |
+			ISC_REQ_MANUAL_CRED_VALIDATION; //手工进行证书认证
+
+		DWORD                dwSSPIOutFlags = 0;
+		TimeStamp            tsExpiry;
+
+		SecBuffer InputBuffer[2] =
+		{
+			{ TokenSize,SECBUFFER_TOKEN,TokenData },
+			{ 0,		SECBUFFER_EMPTY,NULL }
+		};
+		SecBufferDesc InputBufferDesc = { SECBUFFER_VERSION, 2,InputBuffer };
+
+		SecBuffer OutputBuffer = { 0,SECBUFFER_TOKEN,NULL };
+		SecBufferDesc OutputBufferDesc = { SECBUFFER_VERSION, 1,&OutputBuffer };
+
+		SECURITY_STATUS status = ::InitializeSecurityContext(
+			&m_CredHandle,								// Which certificate to use, already established
+			SecIsValidHandle(&m_CtxtHandle) ? &m_CtxtHandle : NULL,	// The context handle if we have one, ask to make one if this is first call
+			m_ServerName,										// Input buffer list
+			dwSSPIFlags,								// What we require of the connection
+			0,
+			SECURITY_NATIVE_DREP,													// Data representation, not used 
+			&InputBufferDesc,
+			0,
+			&m_CtxtHandle,	// If we don't yet have a context handle, it is returned here
+			&OutputBufferDesc,										// [out] The output buffer, for messages to be sent to the other end
+			&dwSSPIOutFlags,								// [out] The flags associated with the negotiated connection
+			&tsExpiry);
+
+		switch (status)
+		{
+		case SEC_E_OK:
+			IsAuthenticated = true;
+			SetEvent(m_AuthenticateEvent);
+			::QueryContextAttributes(
+				&m_CtxtHandle,
+				SECPKG_ATTR_STREAM_SIZES,
+				&m_StreamSizes);
+			printf("StreamSSL::Client.IsAuthenticated = true\n");
+		case SEC_I_CONTINUE_NEEDED:
+			if (OutputBuffer.cbBuffer >0 && OutputBuffer.pvBuffer != NULL)
+			{
+				TokenOutput((BYTE*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer);
+				::FreeContextBuffer(OutputBuffer.pvBuffer);
+			}
+		case SEC_E_INCOMPLETE_MESSAGE:
+			return true;
+		default:
+			break;
+		}
+		SetEvent(&m_AuthenticateEvent);
+		return false;
+	}
+
+	bool AuthenticateAsServer(BYTE* TokenData, int TokenSize)
+	{
+		printf("StreamSSL::AuthenticateAsServer\n");
+		if (TokenOutput == NULL) return false;
+		if (!SecIsValidHandle(&m_CredHandle)) return false;
+
+		DWORD dwSSPIFlags =
+			ASC_REQ_SEQUENCE_DETECT |
+			ASC_REQ_REPLAY_DETECT |
+			ASC_REQ_CONFIDENTIALITY |
+			ASC_REQ_EXTENDED_ERROR |
+			ASC_REQ_ALLOCATE_MEMORY |
+			ASC_REQ_STREAM;
+		DWORD                dwSSPIOutFlags = 0;
+		TimeStamp            tsExpiry;
+
+		SecBuffer InputBuffer[2] =
+		{
+			{ TokenSize,SECBUFFER_TOKEN,TokenData },
+			{ 0,		SECBUFFER_EMPTY,NULL }
+		};
+		SecBufferDesc InputBufferDesc = { SECBUFFER_VERSION, 2,InputBuffer };
+
+		SecBuffer OutputBuffer = { 0,SECBUFFER_TOKEN,NULL };
+		SecBufferDesc OutputBufferDesc = { SECBUFFER_VERSION, 1,&OutputBuffer };
+
+		SECURITY_STATUS status = ::AcceptSecurityContext(
+			&m_CredHandle,								// Which certificate to use, already established
+			SecIsValidHandle(&m_CtxtHandle) ? &m_CtxtHandle : NULL,	// The context handle if we have one, ask to make one if this is first call
+			&InputBufferDesc,										// Input buffer list
+			dwSSPIFlags,									// What we require of the connection
+			SECURITY_NATIVE_DREP,													// Data representation, not used 
+			&m_CtxtHandle,	// If we don't yet have a context handle, it is returned here
+			&OutputBufferDesc,										// [out] The output buffer, for messages to be sent to the other end
+			&dwSSPIOutFlags,								// [out] The flags associated with the negotiated connection
+			&tsExpiry);
+		switch (status)
+		{
+		case SEC_E_OK:
+			IsAuthenticated = true;
+			SetEvent(m_AuthenticateEvent);
+			::QueryContextAttributes(
+				&m_CtxtHandle,
+				SECPKG_ATTR_STREAM_SIZES,
+				&m_StreamSizes);
+			printf("StreamSSL::Server.IsAuthenticated = true\n");
+		case SEC_I_CONTINUE_NEEDED:
+			if (OutputBuffer.cbBuffer >0 && OutputBuffer.pvBuffer != NULL)
+			{
+				TokenOutput((BYTE*)OutputBuffer.pvBuffer, OutputBuffer.cbBuffer);
+				::FreeContextBuffer(OutputBuffer.pvBuffer);
+			}
+		case SEC_E_INCOMPLETE_MESSAGE:
+			return true;
+		default:
+			break;
+		}
+		SetEvent(&m_AuthenticateEvent);
+		return false;
+
+	}
+
+	//bool WaitForAuthenticate()
+	//{
+	//	DWORD result = ::WaitForSingleObject(m_AuthenticateEvent, INFINITE);
+	//	if (result != WAIT_OBJECT_0)
+	//	{
+	//		DWORD err = GetLastError();
+	//		return false;
+	//	}
+	//	return IsAuthenticated;
+	//}
+
 	bool EncryptData(BYTE* DataBuf, int DataSize)
 	{
-		if (!this->IsAuthenticated || m_socket == NULL) return false;
-
 		if (EncryptOutput == NULL) return false;
 		BYTE* EncryptBuffer = NULL;
 		int   EncryptBufferSize = 0;
 		int   EncryptedSize = 0;
-		bool  result = true;
+		bool  result = false;
 		while (DataSize >0)
 		{
 			int HeaderSize = m_StreamSizes.cbHeader;
@@ -275,8 +439,8 @@ public:
 				break;
 			}
 			PacketSize = HeaderSize + MsgSize + MessageBuffer[2].cbBuffer;
-			int bytes = ::send(m_socket,(char*)EncryptBuffer, PacketSize,0);
-			if (bytes != PacketSize) return false;
+			result = EncryptOutput(EncryptBuffer, PacketSize);
+			if (!result) break;
 			DataSize -= MsgSize;
 			EncryptedSize += MsgSize;
 		}
@@ -286,7 +450,8 @@ public:
 
 	bool DecryptData(BYTE* DataBuf, int DataSize)
 	{
-		if (!this->IsAuthenticated || m_socket == NULL || DecryptOutput == NULL) return false;
+		if (DecryptOutput == NULL) return false;
+
 		// Prepare decryption buffers
 		SecBuffer DecryptBuffers[4]=
 		{
@@ -342,8 +507,9 @@ public:
 	// This stops SSL, but it has not been tested
 	void Close()
 	{
-		m_socket = NULL;
 		IsAuthenticated = false;
+		if (m_AuthenticateEvent!=NULL) CloseHandle(m_AuthenticateEvent);
+		m_AuthenticateEvent = NULL;
 		if (SecIsValidHandle(&m_CredHandle)) ::FreeCredentialsHandle(&m_CredHandle);
 		if (SecIsValidHandle(&m_CtxtHandle)) ::FreeCredentialsHandle(&m_CtxtHandle);
 		SecInvalidateHandle(&m_CtxtHandle);

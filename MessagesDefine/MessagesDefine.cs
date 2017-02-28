@@ -12,7 +12,7 @@ namespace MessageFramework
     {
         public string username { get; set; }
         public string password { get; set; }
-        public string text { get; set; }
+        //public string text { get; set; }
         /// <summary>
         /// 非公共域和非属性域均不进行序列化
         /// </summary>
@@ -22,16 +22,11 @@ namespace MessageFramework
         {
         }
 
-        public MsgLogin(string text = null)
+        public MsgLogin(string username, string password)
         {
-            this.text = text;
+            this.username = username;
+            this.password = password;
         }
-    }
-
-    [ProtoContract]
-    public class MsgText : MessageHeader
-    {
-        public string text { get; set; }
     }
 
     [ProtoContract]
@@ -61,6 +56,10 @@ namespace MessageFramework
         public int userid { get; set; }
         public string username { get; set; }
         public List<MsgFriend> Friends { get; set; }
+        public MsgFriendList()
+        {
+            Friends = new List<MsgFriend>();
+        }
     }
 }
 

@@ -19,29 +19,31 @@ namespace MessageFramework
 
         TcpMessageChannelManager _ChannelManager;
         ServerSettings _ServerSettings;
-
+        TcpMessageChannel _ErrorMessageChannel;
         public event EventHandler<MessageHeader> ClientMessageHandler;
 
         SocketAsyncEventArgs[] AllAcceptEventArgs = new SocketAsyncEventArgs[MAX_ACCEPTION_SCOKETS];
         Dictionary<Type, EventHandler<MessageHeader>> MessageHandlers = new Dictionary<Type, EventHandler<MessageHeader>>();
 
-        public TcpMessageServer(ServerSettings ServerSettings, ChannelSettings ChannelSettings)
+        public TcpMessageServer(ServerSettings ServerSettings)
         {
             _ServerSettings = ServerSettings;
             _ListenSocket = null;
             _IsListening = false;
             ClientMessageHandler = null;
 
-            _ChannelManager = new TcpMessageChannelManager(ServerSettings.MaxChannels, ChannelSettings);
+            _ChannelManager = new TcpMessageChannelManager(ServerSettings.MaxChannels);
 
             TcpMessageChannel channel;
             for (int i = 0; i < ServerSettings.MaxChannels; i++)
             {
-                if (ServerSettings.UseSSL) channel = new SslMessageChannel(i, ChannelSettings, _ServerSettings.Certificate);
-                else channel = new TcpMessageChannel(i, ChannelSettings);
+                channel = new TcpMessageChannel(i, ServerSettings);
                 channel.OnMessageReceived += OnClientMessage;
+                channel.OnChannelClosed += OnChannelClosed;
                 _ChannelManager.Push(channel);
             }
+
+            _ErrorMessageChannel = new TcpMessageChannel(-1,ServerSettings);
 
         }
 
@@ -108,6 +110,7 @@ namespace MessageFramework
                 return;
             }
             Socket ClientSocket = AcceptEventArgs.AcceptSocket;
+            //TooManyClients(ClientSocket);
             TcpMessageChannel channel = _ChannelManager.Pop();
             if (channel == null)
             {
@@ -122,9 +125,20 @@ namespace MessageFramework
 
         internal void TooManyClients(Socket ClientSocket)
         {
-            Log.Warn("连接通道太多");
+            lock (_ErrorMessageChannel)
+            {
+                MsgError error = new MsgError()
+                {
+                    error = "连接通道太多,暂时无法提供服务"
+                };
+                _ErrorMessageChannel.Start(ClientSocket);
+                _ErrorMessageChannel.SendMessage(error);
+            }
             ClientSocket.Shutdown(SocketShutdown.Both);
             ClientSocket.Close();
+            ClientSocket.Dispose();
+            ClientSocket = null;
+            Log.Warn("连接通道太多");
         }
 
         void Close(Exception ex)
@@ -159,15 +173,17 @@ namespace MessageFramework
             if (MessageHandlers.ContainsKey(msgtype))
             {
                 EventHandler<MessageHeader> MessageHandler = MessageHandlers[msgtype];
-                if (MessageHandler != null)
-                {
-                    MessageHandler(sender, msghdr);
-                    return;
-                }
+                MessageHandler?.Invoke(sender, msghdr);
             }
-            if (ClientMessageHandler != null)
+            ClientMessageHandler?.Invoke(sender, msghdr);
+        }
+
+        void OnChannelClosed(object sender,Exception ex)
+        {
+            TcpMessageChannel channel = (TcpMessageChannel)sender;
+            if (channel.ChannelId != -1)
             {
-                ClientMessageHandler(sender, msghdr);
+                _ChannelManager.Push(sender as TcpMessageChannel);
             }
         }
 

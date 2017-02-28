@@ -16,10 +16,11 @@ namespace SslServerStreamTest
         StreamSSL _StreamSSL;
         public ClientSSL()
         {
-            _ClientSocket = new Socket(AddressFamily.InterNetwork,SocketType.Stream,ProtocolType.Tcp);
-            _StreamSSL = new StreamSSL();
-            _StreamSSL.EncryptOutput = OnSslEncryptedData;
-            _StreamSSL.DecryptDataOutput = OnSslDecryptedData;
+            _ClientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _StreamSSL = new StreamSSL()
+            {
+                DecryptOutput = OnSslDecryptedData
+            };
         }
 
         /// <summary>
@@ -42,7 +43,7 @@ namespace SslServerStreamTest
             {
                 _ClientSocket.Connect(host, port);
                 Console.WriteLine("Client connected.");
-                if (!_StreamSSL.Initialize("localhost", SslProtocols.Tls12)) return false;
+                if (!_StreamSSL.AuthenticateAsClient(_ClientSocket, SslProtocols.Tls12)) return false;
                 
                 new Thread(ThreadReceive).Start();
 

@@ -33,13 +33,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\SSLServer\packages\NLog.4.4.3\lib\net45\NLog.dll</HintPath>
+      <HintPath>..\packages\NLog.4.4.3\lib\net45\NLog.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net">
       <HintPath>..\SSLServer\packages\protobuf-net.2.1.0\lib\net451\protobuf-net.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -51,11 +51,13 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TcpMessageCLientTest.cs" />
+    <Compile Include="TcpMessageClientTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="NLog.config" />
+    <Content Include="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="NLog.xsd">
       <SubType>Designer</SubType>
     </None>
@@ -69,10 +71,6 @@
     <ProjectReference Include="..\MessagesDefine\MessagesDefine.csproj">
       <Project>{34cbb863-e2c5-42f1-88b5-f98537800382}</Project>
       <Name>MessagesDefine</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\SslServerStream\SslServerStream.vcxproj">
-      <Project>{1f29be29-3264-45af-b29f-6cdee16617f8}</Project>
-      <Name>StreamSSL</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -11,13 +11,10 @@ namespace MessageFramework
     {
         TcpMessageServer _TcpMessageServer;
         ServerSettings _ServerSettings = new ServerSettings();
-        ChannelSettings _ChannelSettings = new ChannelSettings();
-        X509Certificate2 Certificate;
-        public TcpMessageServerTest(int port)
+        public TcpMessageServerTest(ServerSettings ServerSettings)
         {
-            _ServerSettings.ListenPort = port;
-            Certificate = new X509Certificate2(@"E:\MessageFramework\SelfCert.pfx", "messageframework");
-            _TcpMessageServer = new TcpMessageServer(_ServerSettings, _ChannelSettings);
+            _ServerSettings = ServerSettings;
+            _TcpMessageServer = new TcpMessageServer(_ServerSettings);
             _TcpMessageServer.ClientMessageHandler += OnClientMessage;
             _TcpMessageServer.RegisterMessageHandler(typeof(MsgUser), OnUserRegister);
             _TcpMessageServer.RegisterMessageHandler(typeof(MsgLogin), OnUserLogin);
@@ -43,12 +40,31 @@ namespace MessageFramework
         {
             MsgText text = (MsgText)msghdr;
             Log.Debug($"OnTextMessage() :\"{text.text}\"");
+            text.text = text.text.ToUpper();
+            (sender as TcpMessageChannel).SendMessage(text);
         }
 
         public void OnUserLogin(object sender, MessageHeader msghdr)
         {
+            TcpMessageChannel channel = (TcpMessageChannel)sender;
             MsgLogin login = (MsgLogin)msghdr;
             Log.Debug($"OnUserRegister() user:{login.username} password:{login.password}");
+            MsgText text  = new MsgText($"user {login.username} login OK");
+            text.ackid = msghdr.id;
+            channel.SendMessage(text);
+            MsgFriendList friendlist = new MsgFriendList();
+            for (int i = 0; i < 10; i++)
+            {
+                MsgFriend friend = new MsgFriend()
+                {
+                    friendid = i,
+                    friendname = $"friend{i}",
+                    groupname = $"group{i}",
+                    join_time = DateTime.Now
+                };
+                friendlist.Friends.Add(friend);
+            }
+            channel.SendMessage(friendlist);
         }
 
         public void OnUserRegister(object sender, MessageHeader msghdr)

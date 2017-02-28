@@ -10,20 +10,43 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Configuration;
 
 namespace MessageFramework
 {
     class Program
     {
-        static void DoTcpMessageServerTest()
+        static ServerSettings LoadAppConfig()
         {
-            TcpMessageServerTest Server = new TcpMessageServerTest(1234);
-            Server.Start();
+            ServerSettings _ServerSettings = new ServerSettings();
+            foreach (string key in ConfigurationManager.AppSettings)
+            {
+                string value = ConfigurationManager.AppSettings[key];
+                switch (key)
+                {
+                    case "MaxChannels": _ServerSettings.MaxChannels = int.Parse(value); break;
+                    case "ListenPort": _ServerSettings.ListenPort = int.Parse(value); break;
+                    case "UseSSL": _ServerSettings.UseSSL = bool.Parse(value); break;
+                    case "SendBufferSize": _ServerSettings.SendBufferSize = int.Parse(value); break;
+                    case "RecvBufferSize": _ServerSettings.RecvBufferSize = int.Parse(value); break;
+                    case "ConnectTimeout": _ServerSettings.ConnectTimeout = int.Parse(value); break;
+                    case "RecvTimeout": _ServerSettings.RecvTimeout = int.Parse(value); break;
+                    case "SendTimeout": _ServerSettings.SendTimeout = int.Parse(value); break;
+                    case "HeartBeatPeriod": _ServerSettings.SendTimeout = int.Parse(value); break;
+                    case "X509Certificate":
+                        _ServerSettings.Certificate = new X509Certificate2(value, "messageframework");
+                        break;
+
+                }
+                Console.WriteLine("Key: {0}, Value: {1}", key, value);
+            }
+            return _ServerSettings;
         }
 
-        static void DoTSslMessageServerTest()
+        static void DoTcpMessageServerTest()
         {
-            TcpMessageServerTest Server = new TcpMessageServerTest(1234);
+            ServerSettings _ServerSettings = LoadAppConfig();
+            TcpMessageServerTest Server = new TcpMessageServerTest(_ServerSettings);
             Server.Start();
         }
 
@@ -38,19 +61,21 @@ namespace MessageFramework
             //} while (true);
             //return;
 
-            MsgUser user = new MsgUser();
-            user.from = "ahai";
-            user.to = "gca";
-            user.username = "ahai.ysh";
-            user.role = "admin";
+            MsgUser user = new MsgUser()
+            {
+                from = "ahai",
+                to = "gca",
+                username = "ahai.ysh",
+                role = "admin"
+            };
             byte[] msg = ProtobufSerializer.Serialize(user);
             MsgUser user1 = ProtobufSerializer.Deserialize(msg, 0, msg.Length) as MsgUser;
 
-            MsgLogin login = new MsgLogin("Hello world");
-            login.from = "ahai";
-            login.to = "gca";
-            login.username = "username";
-            login.password = "password";
+            MsgLogin login = new MsgLogin("ahai","ysh19680215")
+            {
+                from = "ahai",
+                to = "gca",
+            };
 
             byte[] msg2 = ProtobufSerializer.Serialize(login);
             MsgLogin login2 = (MsgLogin)ProtobufSerializer.Deserialize(msg2, 0, msg2.Length);
